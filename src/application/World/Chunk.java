@@ -42,7 +42,7 @@ public class Chunk
 	private int[][] tiles;
 	private ArrayList<ChunkMatch> matches;
 
-	public Chunk(ArrayList<Integer> colors, PixelReader reader, int readerX, int readerY, int width, int height)
+	public Chunk(ArrayList<Integer> colors, PixelReader reader, int readerX, int readerY, int width, int height, boolean xFlip, boolean yFlip)
 	{
 		// Create 2d array
 		tiles = new int[width][height];
@@ -53,8 +53,23 @@ public class Chunk
 			for (int localY = 0; localY < height; localY++)
 			{
 				// Get the real coordinates on the image itself
-				int realX = localX + readerX;
-				int realY = localY + readerY;
+				int realX, realY;
+				if (xFlip)
+				{
+					realX = (width - localX - 1) + readerX;
+				}
+				else
+				{
+					realX = localX + readerX;
+				}
+				if (yFlip)
+				{
+					realY = (height - localY - 1) + readerY;
+				}
+				else
+				{
+					realY = localY + readerY;
+				}
 				
 				// Get the color at the coordinate
 				int color = reader.getArgb(realX, realY);

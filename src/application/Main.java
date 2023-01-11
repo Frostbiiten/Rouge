@@ -18,7 +18,7 @@ public class Main extends Application
 			BorderPane root = new BorderPane();
 			Scene scene = new Scene(root,400,400);
 			
-			Map map = new Map(new Image("file:s.png"), 100, 100);
+			Map map = new Map(new Image("file:s.png"), 100, 100, 6, 6);
 
 			primaryStage.setScene(scene);
 			primaryStage.show();
