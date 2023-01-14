@@ -1,12 +1,7 @@
 package application;
 	
-import application.World.Map;
 import javafx.application.Application;
 import javafx.stage.Stage;
-import javafx.scene.Scene;
-import javafx.scene.image.Image;
-import javafx.scene.layout.BorderPane;
-
 
 public class Main extends Application
 {
@@ -15,13 +10,7 @@ public class Main extends Application
 	{
 		try
 		{
-			BorderPane root = new BorderPane();
-			Scene scene = new Scene(root,400,400);
-			
-			Map map = new Map(new Image("file:s.png"), 100, 100, 6, 6);
-
-			primaryStage.setScene(scene);
-			primaryStage.show();
+			GameManager.start(primaryStage);
 		}
 		catch(Exception e)
 		{

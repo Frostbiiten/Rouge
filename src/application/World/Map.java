@@ -2,279 +2,213 @@ package application.World;
 
 import java.util.ArrayList;
 
-import javafx.scene.image.Image;
+import application.Vector2;
 import javafx.scene.image.PixelReader;
+import javafx.scene.image.PixelWriter;
+import javafx.scene.image.WritableImage;
 
 public class Map
 {
-	// List of rooms
-	private ArrayList<Room> room;
+	private int width, height;
+	private int[][] tiles;
+	private Partition root;
+	private Tilemap tilemap;
 
-	public Map(Image source, int width, int height, int chunkWidth, int chunkHeight)
+	public Map(int width, int height, int roomCount, Tilemap tilemap)
 	{
-		PixelReader reader = source.getPixelReader();
+		// Initialize width, height and tilemap
+		this.width = width;
+		this.height = height;
+		this.tilemap = tilemap;
 
-		// Arraylist of unique colors (for different tiles)
-		ArrayList<Integer> colors = new ArrayList<Integer>();
+		// Create tiles 2d array
+		tiles = new int[width][height];
 
-		// Use binary search and insertion to propogate arraylist with unique numbers
-		for (int x = 0; x < source.getWidth(); x++)
+		// Create root partition and begin to create children
+		root = new Partition(0, 0, width, height, 0);
+
+		// Create partitions
+		for (int i = 0; i < roomCount; i++)
 		{
-			for (int y = 0; y < source.getHeight(); y++)
+			root.addPartition();
+		}
+	
+		// Sort by size using insertion sort
+		ArrayList<Partition> partitions = root.getPartitions();
+		for (int end = 1; end < partitions.size(); end++)
+		{
+			Partition item = partitions.get(end);
+			int i = end;
+			
+			int currentArea = item.getWidth() * item.getHeight();
+			int previousArea = partitions.get(i - 1).getWidth() * partitions.get(i - 1).getHeight();
+			while (i > 0 && currentArea < previousArea)
 			{
-				// Get the color at the coordinate
-				int color = reader.getArgb(x, y);
+				partitions.set(i, partitions.get(i - 1));
+				i--;
+			}
+			partitions.set(i, item);
+		}
 
-				// Use binary search to see if color exists in colors ArrayList
-				int searchStart = 0;
-				int searchEnd = colors.size() - 1;
-				int mid = 0, searchIndex = -1;
-				
-				while (searchStart <= searchEnd)
+		// TODO: group rooms by sizes, specialize them (boss (?), etc)
+
+		// Fill rooms
+		for (int i = 0; i < partitions.size(); i++)
+		{
+			Partition currentPartition = partitions.get(i);
+
+			// Get bounds of partition using position and dimensions
+			int xBegin = currentPartition.getXPos();
+			int xEnd = currentPartition.getXPos() + currentPartition.getWidth();
+
+			int yBegin = currentPartition.getYPos();
+			int yEnd = currentPartition.getYPos() + currentPartition.getHeight();
+
+			for (int x = xBegin; x < xEnd; x++)
+			{
+				for (int y = yBegin; y < yEnd; y++)
 				{
-					mid = (searchStart + searchEnd) / 2;
-					if (colors.get(mid) == color)
+					boolean left = x == xBegin;
+					boolean right = x == xEnd - 1;
+					boolean top = y == yBegin;
+					boolean bottom = y == yEnd - 1;
+
+					// Get tile id based on where the tile is
+					int tileID;
+
+					// Do corner cases first
+					if (left && top)
 					{
-						// Color is mid (found)
-						searchIndex = mid;
-						break;
+						tileID = tilemap.getWallsArray()[Tilemap.TOPLEFT];
 					}
-					else if (color > colors.get(mid))
+					else if (left && bottom)
 					{
-						// Color is more than mid
-						searchStart = mid + 1;
+						tileID = tilemap.getWallsArray()[Tilemap.BOTTOMLEFT];
+					}
+					else if (right && top)
+					{
+						tileID = tilemap.getWallsArray()[Tilemap.TOPRIGHT];
+					}
+					else if (right && bottom)
+					{
+						tileID = tilemap.getWallsArray()[Tilemap.BOTTOMRIGHT];
+					}
+					else if (left)
+					{
+						tileID = tilemap.getWallsArray()[Tilemap.LEFT];
+					}
+					else if (top)
+					{
+						tileID = tilemap.getWallsArray()[Tilemap.TOP];
+					}
+					else if (right)
+					{
+						tileID = tilemap.getWallsArray()[Tilemap.RIGHT];
+					}
+					else if (bottom)
+					{
+						tileID = tilemap.getWallsArray()[Tilemap.BOTTOM];
 					}
 					else
 					{
-						// Only other case is color must be less than mid
-						searchEnd = mid - 1;
-					}
-				}
-				
-				// If color still wasn't found, insert it in the correct order
-				if (searchIndex == -1)
-				{
-					if (colors.size() > 0)
-					{
-						if (color > colors.get(mid))
+						boolean floorLeft = x == xBegin + 1;
+						boolean floorRight = x == xEnd - 2;
+						boolean floorTop = y == yBegin + 1;
+						boolean floorBottom = y == yEnd - 2;
+
+						// Check cases for INSIDE room
+
+						if (floorLeft && floorTop)
 						{
-							searchIndex = mid + 1;
+							tileID = tilemap.getFloorArray()[Tilemap.TOPLEFT];
+						}
+						else if (floorLeft && floorBottom)
+						{
+							tileID = tilemap.getFloorArray()[Tilemap.BOTTOMLEFT];
+						}
+						else if (floorRight && floorTop)
+						{
+							tileID = tilemap.getFloorArray()[Tilemap.TOPRIGHT];
+						}
+						else if (floorRight && floorBottom)
+						{
+							tileID = tilemap.getFloorArray()[Tilemap.BOTTOMRIGHT];
+						}
+						else if (floorLeft)
+						{
+							tileID = tilemap.getFloorArray()[Tilemap.LEFT];
+						}
+						else if (floorTop)
+						{
+							tileID = tilemap.getFloorArray()[Tilemap.TOP];
+						}
+						else if (floorRight)
+						{
+							tileID = tilemap.getFloorArray()[Tilemap.RIGHT];
+						}
+						else if (floorBottom)
+						{
+							tileID = tilemap.getFloorArray()[Tilemap.BOTTOM];
 						}
 						else
 						{
-							searchIndex = mid;
+							// Center (normal)
+							tileID = tilemap.getFloorArray()[Tilemap.CENTER];
 						}
 					}
-					else
-					{
-						searchIndex = 0;
-					}
 
-					colors.add(searchIndex, color);
-				}
-			}
-		}
-
-		// Create array to store chunks (4 for different orientations from x flip and y flip)
-		Chunk[] chunks = new Chunk[((int)source.getWidth() + 1 - chunkWidth) * ((int)source.getHeight() + 1 - chunkHeight) * 4];
-
-		// Create chunks
-		for (int y = 0; y <= source.getHeight() - chunkHeight; y++)
-		{
-			for (int x = 0; x <= source.getWidth() - chunkWidth; x++)
-			{
-				int baseIndex = (y * (int)(source.getWidth() - chunkWidth + 1) + x) * 4;
-				chunks[baseIndex] = new Chunk(colors, reader, x, y, chunkWidth, chunkHeight, false, false);
-				chunks[baseIndex + 1] = new Chunk(colors, reader, x, y, chunkWidth, chunkHeight, true, false);
-				chunks[baseIndex + 2] = new Chunk(colors, reader, x, y, chunkWidth, chunkHeight, false, true);
-				chunks[baseIndex + 3] = new Chunk(colors, reader, x, y, chunkWidth, chunkHeight, true, true);
-			}
-		}
-
-		// Debug
-		for (int i = 0; i < chunks.length; i++)
-		{
-			for (int y = 0; y < chunkHeight; y++)
-			{
-				for (int x = 0; x < chunkWidth; x++)
-				{
-					int b = chunks[i].getID(x, y);
-					if (b == 0)
-					{
-						System.out.print("░");
-					}
-					else if (b == 1)
-					{
-						System.out.print("▒");
-					}
-					else if (b == 2)
-					{
-						System.out.print("▓");
-					}
-					else
-					{
-						System.out.print(" ");
-					}
+					tiles[x][y] = tileID;
+					System.out.print(String.format("%2s ", tileID));
 				}
 				System.out.println();
 			}
-			System.out.println();
 		}
+	}
 
+    public void draw(Vector2 cameraPos, WritableImage renderImg)
+	{
+		// Get pixel reader and writer to draw from tileset to screen
+		PixelReader reader = tilemap.getTilesImg().getPixelReader();
+		PixelWriter writer = renderImg.getPixelWriter();
+		int tileSize = tilemap.getTileSize();
 
-		// I haven't added the actual 'base cases': i.e., the 3x3 tile is a 'neighbor' to the 3x3 tile right beside it with mutually exclusive bounds
-		
-		// Map to perform wave function collapse on
-		// This will be default initialized to FALSE, therefore, I will that to represent the valid configuration.
-		// True will be used to represent a definite incompatibility at the indicies of the trues
-		boolean[][][] map = new boolean[width][height][colors.size()];
-
-		// Queue of superposition 'tiles' to update
-		ArrayList<Integer> queue = new ArrayList<Integer>();
-		queue.add(height * width / 2); // begin at center of map
-
-		// 'visited queue' - false by default
-		boolean[] visited = new boolean[width * height];
-		
-		// If spot is NOT empty, it must be filled by a neighbor of all its neighboring nodes
-		while (queue.size() > 0)
-		{
-			System.out.println(queue.size());
-
-			// Take from queue, 'pop' and set visited
-			int spot = queue.get(0);
-			int yPos = spot / width;
-			int xPos = spot - (yPos * width);
-			queue.remove(0);
-
-			// Keep track of possible chunks indices for current 'tile'
-			ArrayList<Integer> possibleChunks = new ArrayList<Integer>();
-
-			// Iterate through all all chunks and see if they are a possible configuration for the superposition
-			for (int chunk = 0; chunk < chunks.length; chunk++)
-			{
-				boolean valid = true;
-				
-				for (int x = 0; x < chunkWidth; x++)
-				{
-					for (int y = 0; y < chunkHeight; y++)
-					{
-						int realX = xPos + x;
-						int realY = yPos + y;
-
-						if (realX >= 0 && realX < width && realY >= 0 && realY < height)
-						{
-							// Get the superposition
-							boolean[] superposition = map[realX][realY];
-
-							// See if the current spot in the configuration is possible (true means invalid)
-							if (superposition[chunks[chunk].getID(x, y)] == true)
-							{
-								valid = false;
-								break;
-							}
-						}
-					}
-
-					if (!valid)
-					{
-						break;
-					}
-				}
-
-				if (valid)
-				{
-					possibleChunks.add(chunk);
-				}
-			}
-
-			// Only count as visited if collapse occured
-			if (possibleChunks.size() == 0)
-			{
-				visited[spot] = false;
-				continue;
-			}
-
-			// Choose a possible random collapsed chunk to superimpose
-			int randomState = (int)(Math.random() * possibleChunks.size());
-			Chunk collapsedChunk = chunks[possibleChunks.get(randomState)];
-
-			// completely collapse tile itself
-			for (int x = 0; x < chunkWidth; x++)
-			{
-				for (int y = 0; y < chunkHeight; y++)
-				{
-					int realX = xPos + x;
-					int realY = yPos + y;
-
-					if (realX >= 0 && realX < width && realY >= 0 && realY < height)
-					{
-						// get collapsed state id
-						int newID = collapsedChunk.getID(x, y);
-
-						// Get superposition to collapse
-						boolean[] superposition = map[xPos + x][yPos + y];
-
-						for (int i = 0; i < superposition.length; i++)
-						{
-							if (i == newID)
-							{
-								superposition[i] = false;
-							}
-							else
-							{
-								superposition[i] = true;
-							}
-						}
-					}
-				}
-			}
-
-			// Add adjacents to queue (respectively top, bottom, right and left respectively)
-			int[] adjacents = new int[]{-width, width, 1, -1};
-			for (int i = 0; i < adjacents.length; i++)
-			{
-				int newSpot = spot + adjacents[i];
-				// Add to queue if not visited
-				if (newSpot >= 0 && newSpot < width * height && !visited[newSpot])
-				{
-					queue.add(queue.size(), newSpot);
-					visited[newSpot] = true;
-				}
-			}
-		}
+		root.drawBounds(cameraPos, renderImg);
 
 		for (int x = 0; x < width; x++)
 		{
 			for (int y = 0; y < height; y++)
 			{
-				for (int color = 0; color < colors.size(); color++)
+				// Destination x and y coordinate of tile to be drawn
+				int destX = x * tileSize - (int)cameraPos.x;
+				int destY = y * tileSize - (int)cameraPos.y;
+
+				int tileID = tiles[x][y];
+				if (tileID == 0)
 				{
-					if (map[x][y][color] == false)
+					continue;
+				}
+
+				// Source x and y coordinate of tile to be drawn from tilemap
+				int srcY = tileID / (int)(tilemap.getTilesImg().getWidth() / tileSize);
+				int srcX = tileID - (srcY * (int)(tilemap.getTilesImg().getWidth() / tileSize));
+
+				srcX *= tileSize;
+				srcY *= tileSize;
+
+				
+				// Make sure destination coordinate is onscreen
+				if (destX > 0 && destX < renderImg.getWidth() && destY > 0 && destY < renderImg.getHeight())
+				{
+					try
 					{
-						if (color == 0)
-						{
-							System.out.print("▓");
-						}
-						else if (color == 1)
-						{
-							System.out.print("░");
-						}
-						else if (color == 2)
-						{
-							System.out.print("▒");
-						}
-						else
-						{
-							System.out.print(" ");
-						}
-						break;
+						writer.setPixels(destX, destY, tileSize, tileSize, reader, srcX, srcY);
+					}
+					catch (Exception e)
+					{
+
 					}
 				}
 			}
-			System.out.println();
 		}
-	}
-
-	// TODO: use 9slice to generate tilemap (possible 2x scale)
+    }
 }
