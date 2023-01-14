@@ -106,7 +106,7 @@ public class GameManager
 					tilemap.setSlice(wall, Tilemap.BOTTOM, 0, 1);
 					tilemap.setSlice(wall, Tilemap.BOTTOMRIGHT, 0, 2);
 
-					map = new Map(100, 100, 20, tilemap);
+					map = new Map(150, 100, 25, tilemap);
 					
 					System.out.println("Loading complete!");
 					

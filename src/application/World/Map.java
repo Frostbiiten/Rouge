@@ -25,6 +25,9 @@ public class Map
 	private ArrayList<Edge> hallways;
 	private ArrayList<Edge> graph;
 
+	private Rectangle startRoom;
+	private Rectangle endRoom;
+
 	public Map(int width, int height, int roomCount, Tilemap tilemap)
 	{
 		// Initialize width, height and tilemap
@@ -32,33 +35,54 @@ public class Map
 		this.height = height;
 		this.tilemap = tilemap;
 		
-		int maxWidth = 20, minWidth = 10, maxHeight = 20, minHeight = 10;
+		int maxWidth = 20, minWidth = 12, maxHeight = 20, minHeight = 12;
 
 		// Random room generation
 		Random rand = new Random();
 		rooms = new ArrayList<Rectangle>();
 		ArrayList<Vector2> roomPositions = new ArrayList<Vector2>();
 
+		Rectangle roomBounds = new Rectangle(0, 0, width, height);
+
+		int attempts = 0;
 		while (rooms.size() < roomCount)
 		{
+			// Restart room generation if there have been too many failed attempts
+			attempts++;
+			if (attempts > 100)
+			{
+				attempts = 0;
+				rooms.clear();
+			}
+
 			Rectangle rect = new Rectangle(rand.nextInt(width), rand.nextInt(height), rand.nextInt(maxWidth - minWidth) + minWidth, rand.nextInt(maxHeight - minHeight) + minHeight);
+
+			// Skip if rectangle is outside of bounds
+			if (rect.getX() + rect.getWidth() > width - 1 || rect.getY() + rect.getHeight() > height - 1)
+			{
+				continue;
+			}
 
 			boolean valid = true;
 			for (int i = 0; i < rooms.size(); i++)
 			{
 				// Make sure rectangle doesn't overlap another/go out of range
-				if (rooms.get(i).intersects(rect.getBoundsInParent()) || rect.getX() + rect.getWidth() >= width - 1 || rect.getY() + rect.getHeight() >= height - 1)
+				if (rooms.get(i).intersects(rect.getBoundsInParent()))
 				{
 					valid = false;
 					break;
 				}
 			}
-			
-			if (!valid) continue;
 
-			// Add to list of rooms along with position
-			rooms.add(rect);
-			roomPositions.add(new Vector2(rect.getX() + rect.getWidth() / 2, rect.getY() + rect.getHeight() / 2));
+			if (valid)
+			{
+				// Reset attempts as room is valid
+				attempts = 0;
+
+				// Add to list of rooms along with position
+				rooms.add(rect);
+				roomPositions.add(new Vector2(rect.getX() + rect.getWidth() / 2, rect.getY() + rect.getHeight() / 2));
+			}
 		}
 
 		// Triangulate graph using bowyer watson algorithm
@@ -69,7 +93,7 @@ public class Map
 		// Generate MST using prim's algorithm
 		ArrayList<Edge> mst = generateMST(hallways);
 		
-		// Remove edges not in mst from graph, except for 10%
+		// Remove edges not in mst from graph, except for 15%
 		for (int i = 0; i < graph.size(); i++)
 		{
 			Edge current = graph.get(i);
@@ -85,11 +109,11 @@ public class Map
 				}
 			}
 
-			// 10% chance to keep edges not in mst
+			// 15% chance to keep edges not in mst
 			boolean keeping = true;
 			if (!inMST)
 			{
-				keeping = Math.random() < 0.1;
+				keeping = Math.random() < 0.15;
 			}
 
 			if (!keeping)
@@ -100,7 +124,7 @@ public class Map
 		}
 	
 		// Array to store if hallway waws created at [x][y] or not (default false)
-		boolean[][] hallArr = new boolean[width][height];
+		boolean[][] floorTiles = new boolean[width][height];
 
 		// Use a* algorithm to find paths
 		for (int i = 0; i < hallways.size(); i++)
@@ -141,11 +165,9 @@ public class Map
 
 			// Add initial point to queue with 0 cost in queue, with previous as self
 			queue.add(new int[]{(int)beginVec.x, (int)beginVec.y, 0});
-			costArr[(int)beginVec.x][(int)beginVec.y] = 0;
+
 			visited[(int)beginVec.x][(int)beginVec.y] = 0;
 			previousNodes[(int)beginVec.x][(int)beginVec.y] = new int[]{(int)beginVec.x, (int)beginVec.y};
-
-			boolean pathFound = false;
 
 			while(queue.size() != 0)
 			{
@@ -183,22 +205,19 @@ public class Map
 				// Check if end has been reached
 				if (nodeX == (int)endVec.x && nodeY == (int)endVec.y)
 				{
-					System.out.print("Path found!\n");
-					pathFound = true;
-
 					// Trace path back for hall array
 					int traceX = nodeX, traceY = nodeY;
-					hallArr[traceX][traceY] = true;
+					floorTiles[traceX][traceY] = true;
 
 					// First node's previous will be itself, so trace until then
 					while(previousNodes[traceX][traceY][0] != traceX || previousNodes[traceX][traceY][1] != traceY)
 					{
 						traceX = previousNodes[traceX][traceY][0];
 						traceY = previousNodes[traceX][traceY][1];
-						hallArr[traceX][traceY] = true;
+						floorTiles[traceX][traceY] = true;
 					}
 
-					hallArr[traceX][traceY] = true;
+					floorTiles[traceX][traceY] = true;
 					break;
 				}
 
@@ -237,17 +256,25 @@ public class Map
 
 							// Alter heuristic based on map
 							int fCost = (gCost + hCost) * 10;
-							if (!hallArr[newSpotX][newSpotY]) // Prefer to be in hall
+							if (!floorTiles[newSpotX][newSpotY]) // Prefer to be in hall
 							{
 								fCost += 5;
 							}
 
-							// TODO: add heuristic modifier (?) for rooms. Or should this be a cost modifier?
-							// Heavily disfavor room
-							if (fCost == Integer.MAX_VALUE)  // change this to *spot in room* expression
+							/*
+							for (int room = 0; room < rooms.size(); room++)
 							{
-								fCost += 1000;
+								if (rooms.get(room).getBoundsInParent().contains(endVec.x, endVec.y))
+								{
+									continue;
+								}
+
+								if (rooms.get(room).getBoundsInParent().contains(newSpotX, newSpotY))
+								{
+									fCost += 1;
+								}
 							}
+							*/
 
 							// Set cost and previous node for neighbor
 							costArr[newSpotX][newSpotY] = fCost;
@@ -266,31 +293,140 @@ public class Map
 		}
 
 		// Shrink rooms for padding/spacing purposes
-
-
 		for (int i = 0; i < rooms.size(); i++)
 		{
 			Rectangle currentRoom = rooms.get(i);
-			currentRoom.setWidth(currentRoom.getWidth() - 2);
-			currentRoom.setX(currentRoom.getX() + 1);
-			currentRoom.setHeight(currentRoom.getHeight() - 2);
-			currentRoom.setY(currentRoom.getY() + 1);
+			currentRoom.setWidth(currentRoom.getWidth() - 4);
+			currentRoom.setX(currentRoom.getX() + 2);
+			currentRoom.setHeight(currentRoom.getHeight() - 4);
+			currentRoom.setY(currentRoom.getY() + 2);
 
 			for (int x = (int)currentRoom.getX(); x < (int)currentRoom.getX() + currentRoom.getWidth(); x++)
 			{
 				for (int y = (int)currentRoom.getY(); y < (int)currentRoom.getY() + currentRoom.getHeight(); y++)
 				{
-					hallArr[x][y] = true;
+					floorTiles[x][y] = true;
 				}
 			}
 		}
 
+		// Get graph "components" using flood fill algorithm
 
+		// 'visited' array to store which component a tile belongs to
+		int component[][] = new int[width][height];
+		for (int x = 0; x < width; x++)
+		{
+			for (int y = 0; y < height; y++)
+			{
+				component[x][y] = -1;
+			}
+		}
+
+		// Arraylist of components. [0] = component num, [1] = component size
+		ArrayList<int[]> components = new ArrayList<int[]>();
+
+		for (int x = 0; x < width; x++)
+		{
+			for (int y = 0; y < height; y++)
+			{
+				// Check if room is open
+				if (floorTiles[x][y] && component[x][y] == -1)
+				{
+					int[] currentComponent = new int[]{components.size(), 0};
+					components.add(currentComponent);
+					
+					ArrayList<int[]> queue = new ArrayList<int[]>();
+
+					// Begin floodfill
+					queue.add(new int[]{x, y});
+					component[x][y] = currentComponent[0];
+
+					while(!queue.isEmpty())
+					{
+						// Get front node and 'pop' queue
+						int[] current = queue.get(0);
+						queue.remove(0);
+						int nodeX = current[0], nodeY = current[1];
+
+						// Add this cell to size of current component
+						currentComponent[1]++;
+
+						// Add adjacent nodes
+						if (nodeX > 0)
+						{
+							if (component[nodeX - 1][nodeY] == -1 && floorTiles[nodeX - 1][nodeY])
+							{
+								component[nodeX - 1][nodeY] = currentComponent[0];
+								queue.add(new int[]{nodeX - 1, nodeY});
+							}
+						}
+						if (nodeX < width - 1)
+						{
+							if (component[nodeX + 1][nodeY] == -1 && floorTiles[nodeX + 1][nodeY])
+							{
+								component[nodeX + 1][nodeY] = currentComponent[0];
+								queue.add(new int[]{nodeX + 1, nodeY});
+							}
+						}
+
+						if (nodeY > 0)
+						{
+							if (component[nodeX][nodeY - 1] == -1 && floorTiles[nodeX][nodeY - 1])
+							{
+								component[nodeX][nodeY - 1] = currentComponent[0];
+								queue.add(new int[]{nodeX, nodeY - 1});
+							}
+						}
+						if (nodeY < height - 1)
+						{
+							if (component[nodeX][nodeY + 1] == -1 && floorTiles[nodeX][nodeY + 1])
+							{
+								component[nodeX][nodeY + 1] = currentComponent[0];
+								queue.add(new int[]{nodeX, nodeY + 1});
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Use insertion sort to sort components by size
+		for (int end = 1; end < components.size(); end++)
+		{
+			int[] val = components.get(end);
+			int index = end;
+
+			// Compare sizes obtained from floodFill
+			while (index > 0 && val[1] < components.get(index - 1)[1])
+			{
+				components.set(index, components.get(index - 1));
+				index--;
+			}
+
+			components.set(index, val);
+		}
+
+		// Get largest component (arraylist is sorted from least to greatestb)
+		int[] largestComponent = components.get(components.size() - 1);
+
+		// If id is not largestComponent, then set it to empty, leaving only the largest component
+		for (int x = 0; x < width; x++)
+		{
+			for (int y = 0; y < height; y++)
+			{
+				if (component[x][y] != largestComponent[0])
+				{
+					floorTiles[x][y] = false;
+				}
+			}
+		}
+
+		// Print
 		for (int y = 0; y < height; y++)
 		{
 			for (int x = 0; x < width; x++)
 			{
-				if(hallArr[x][y])
+				if(floorTiles[x][y])
 				{
 					System.out.print("▓");
 				}
@@ -303,8 +439,70 @@ public class Map
 		}
 		System.out.println();
 
+		// To check if room hasn't been removed, just check if the center tile is true in the floorTiles array
+		for (int room = 0; room < rooms.size(); room++)
+		{
+			Rectangle current = rooms.get(room);
+			
+			// Check if center of rectangle is inside a room
+			if (!floorTiles[(int)(current.getX() + current.getWidth() / 2)][(int)(current.getY() + current.getHeight() / 2)])
+			{
+				rooms.remove(current);
+				room--;
+			}
+		}
+
+		// Sort rooms by distance from center
+		Vector2 mapCenter = new Vector2(width / 2, height / 2);
+		for (int end = 1; end < rooms.size(); end++)
+		{
+			Rectangle rect = rooms.get(end);
+			int index = end;
+
+			// Get distance of current rect from center (use square distance because it is faster to compute)
+			double sqrDistance = Vector2.SqrDistance(mapCenter, new Vector2(rect.getX() + rect.getWidth() / 2, rect.getY() + rect.getHeight() / 2));
+
+			// Sort using distance from center
+			while (index > 0 && sqrDistance < Vector2.SqrDistance(mapCenter,
+				new Vector2(rooms.get(index - 1).getX() + rooms.get(index - 1).getWidth() / 2, rooms.get(index - 1).getY() + rooms.get(index - 1).getWidth() / 2)))
+			{
+				rooms.set(index, rooms.get(index - 1));
+				index--;
+			}
+
+			rooms.set(index, rect);
+		}
+
+		// Chose furthest from center for start room
+		startRoom = rooms.get(rooms.size() - 1);
+		Vector2 startRoomPos = new Vector2(startRoom.getX() + startRoom.getWidth() / 2, startRoom.getY() + startRoom.getHeight() / 2);
+
+		// Sort again to get furthest from start room to assign to end room
+		for (int end = 1; end < rooms.size(); end++)
+		{
+			Rectangle rect = rooms.get(end);
+			int index = end;
+
+			// Get distance of current rect from center (use square distance because it is faster to compute)
+			double sqrDistance = Vector2.SqrDistance(startRoomPos, new Vector2(rect.getX() + rect.getWidth() / 2, rect.getY() + rect.getHeight() / 2));
+
+			// Sort using distance from center
+			while (index > 0 && sqrDistance < Vector2.SqrDistance(startRoomPos,
+				new Vector2(rooms.get(index - 1).getX() + rooms.get(index - 1).getWidth() / 2, rooms.get(index - 1).getY() + rooms.get(index - 1).getWidth() / 2)))
+			{
+				rooms.set(index, rooms.get(index - 1));
+				index--;
+			}
+
+			rooms.set(index, rect);
+		}
+
+		endRoom = rooms.get(rooms.size() - 1);
+
 		// Create tiles 2d array
 		tiles = new int[width][height];
+
+		// Basic
 	}
 
 
