@@ -1,18 +1,29 @@
 package application.World;
 
 import java.util.ArrayList;
+import java.util.Random;
 
+import application.Camera;
+import application.GameManager;
 import application.Vector2;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 
 public class Map
 {
 	private int width, height;
 	private int[][] tiles;
-	private Partition root;
 	private Tilemap tilemap;
+
+	// Map generation
+	private ArrayList<Rectangle> rooms;
+	private ArrayList<Edge> hallways;
+	private ArrayList<Edge> graph;
 
 	public Map(int width, int height, int roomCount, Tilemap tilemap)
 	{
@@ -20,149 +31,397 @@ public class Map
 		this.width = width;
 		this.height = height;
 		this.tilemap = tilemap;
+		
+		int maxWidth = 20, minWidth = 10, maxHeight = 20, minHeight = 10;
 
-		// Create tiles 2d array
-		tiles = new int[width][height];
+		// Random room generation
+		Random rand = new Random();
+		rooms = new ArrayList<Rectangle>();
+		ArrayList<Vector2> roomPositions = new ArrayList<Vector2>();
 
-		// Create root partition and begin to create children
-		root = new Partition(0, 0, width, height, 0);
-
-		// Create partitions
-		for (int i = 0; i < roomCount; i++)
+		while (rooms.size() < roomCount)
 		{
-			root.addPartition();
-		}
-	
-		// Sort by size using insertion sort
-		ArrayList<Partition> partitions = root.getPartitions();
-		for (int end = 1; end < partitions.size(); end++)
-		{
-			Partition item = partitions.get(end);
-			int i = end;
-			
-			int currentArea = item.getWidth() * item.getHeight();
-			int previousArea = partitions.get(i - 1).getWidth() * partitions.get(i - 1).getHeight();
-			while (i > 0 && currentArea < previousArea)
+			Rectangle rect = new Rectangle(rand.nextInt(width), rand.nextInt(height), rand.nextInt(maxWidth - minWidth) + minWidth, rand.nextInt(maxHeight - minHeight) + minHeight);
+
+			boolean valid = true;
+			for (int i = 0; i < rooms.size(); i++)
 			{
-				partitions.set(i, partitions.get(i - 1));
+				// Make sure rectangle doesn't overlap another/go out of range
+				if (rooms.get(i).intersects(rect.getBoundsInParent()) || rect.getX() + rect.getWidth() >= width - 1 || rect.getY() + rect.getHeight() >= height - 1)
+				{
+					valid = false;
+					break;
+				}
+			}
+			
+			if (!valid) continue;
+
+			// Add to list of rooms along with position
+			rooms.add(rect);
+			roomPositions.add(new Vector2(rect.getX() + rect.getWidth() / 2, rect.getY() + rect.getHeight() / 2));
+		}
+
+		// Triangulate graph using bowyer watson algorithm
+		Triangulator triangulator = new Triangulator();
+		graph = triangulator.triangulate(roomPositions);
+		hallways = new ArrayList<Edge>(graph);
+
+		// Generate MST using prim's algorithm
+		ArrayList<Edge> mst = generateMST(hallways);
+		
+		// Remove edges not in mst from graph, except for 10%
+		for (int i = 0; i < graph.size(); i++)
+		{
+			Edge current = graph.get(i);
+
+			// Check if edge exists in mst
+			boolean inMST = false;
+			for (int j = 0; j < mst.size(); j++)
+			{
+				if (Triangulator.closeTo(current, mst.get(j)))
+				{
+					inMST = true;
+					break;
+				}
+			}
+
+			// 10% chance to keep edges not in mst
+			boolean keeping = true;
+			if (!inMST)
+			{
+				keeping = Math.random() < 0.1;
+			}
+
+			if (!keeping)
+			{
+				hallways.remove(current);
 				i--;
 			}
-			partitions.set(i, item);
 		}
+	
+		// Array to store if hallway waws created at [x][y] or not (default false)
+		boolean[][] hallArr = new boolean[width][height];
 
-		// TODO: group rooms by sizes, specialize them (boss (?), etc)
-
-		// Fill rooms
-		for (int i = 0; i < partitions.size(); i++)
+		// Use a* algorithm to find paths
+		for (int i = 0; i < hallways.size(); i++)
 		{
-			Partition currentPartition = partitions.get(i);
+			Edge current = hallways.get(i);
 
-			// Get bounds of partition using position and dimensions
-			int xBegin = currentPartition.getXPos();
-			int xEnd = currentPartition.getXPos() + currentPartition.getWidth();
+			Vector2 beginVec = current.getA();
+			Vector2 endVec = current.getB();
 
-			int yBegin = currentPartition.getYPos();
-			int yEnd = currentPartition.getYPos() + currentPartition.getHeight();
+			// Array to store the state of grid spot
+			// -1 : unvisited
+			// 0 : in queue
+			// 1 : visited
+			int[][] visited = new int[width][height];
+			
+			// Array to store the cost of a cell
+			// [0] = node x
+			// [1] = node y
+			// [2] = cost
+			int[][] costArr = new int[width][height];
 
-			for (int x = xBegin; x < xEnd; x++)
+			// Array to store the previous cell from traversal
+			int[][][] previousNodes = new int[width][height][2];
+
+			// Set default values
+			for (int x = 0; x < width; x++)
 			{
-				for (int y = yBegin; y < yEnd; y++)
+				for (int y = 0; y < height; y++)
 				{
-					boolean left = x == xBegin;
-					boolean right = x == xEnd - 1;
-					boolean top = y == yBegin;
-					boolean bottom = y == yEnd - 1;
+					visited[x][y] = -1;
+					costArr[x][y] = Integer.MAX_VALUE;
+					previousNodes[x][y] = new int[]{-1, -1};
+				}
+			}
 
-					// Get tile id based on where the tile is
-					int tileID;
+			// Pathfind from the beginning of an edge to the end
+			ArrayList<int[]> queue = new ArrayList<int[]>();
 
-					// Do corner cases first
-					if (left && top)
-					{
-						tileID = tilemap.getWallsArray()[Tilemap.TOPLEFT];
-					}
-					else if (left && bottom)
-					{
-						tileID = tilemap.getWallsArray()[Tilemap.BOTTOMLEFT];
-					}
-					else if (right && top)
-					{
-						tileID = tilemap.getWallsArray()[Tilemap.TOPRIGHT];
-					}
-					else if (right && bottom)
-					{
-						tileID = tilemap.getWallsArray()[Tilemap.BOTTOMRIGHT];
-					}
-					else if (left)
-					{
-						tileID = tilemap.getWallsArray()[Tilemap.LEFT];
-					}
-					else if (top)
-					{
-						tileID = tilemap.getWallsArray()[Tilemap.TOP];
-					}
-					else if (right)
-					{
-						tileID = tilemap.getWallsArray()[Tilemap.RIGHT];
-					}
-					else if (bottom)
-					{
-						tileID = tilemap.getWallsArray()[Tilemap.BOTTOM];
-					}
-					else
-					{
-						boolean floorLeft = x == xBegin + 1;
-						boolean floorRight = x == xEnd - 2;
-						boolean floorTop = y == yBegin + 1;
-						boolean floorBottom = y == yEnd - 2;
+			// Add initial point to queue with 0 cost in queue, with previous as self
+			queue.add(new int[]{(int)beginVec.x, (int)beginVec.y, 0});
+			costArr[(int)beginVec.x][(int)beginVec.y] = 0;
+			visited[(int)beginVec.x][(int)beginVec.y] = 0;
+			previousNodes[(int)beginVec.x][(int)beginVec.y] = new int[]{(int)beginVec.x, (int)beginVec.y};
 
-						// Check cases for INSIDE room
+			boolean pathFound = false;
 
-						if (floorLeft && floorTop)
+			while(queue.size() != 0)
+			{
+				// Sort queue using insertion sort
+				for (int end = 1; end < queue.size(); end++)
+				{
+					int[] val = queue.get(end);
+					int index = end;
+
+					while (index > 0)
+					{
+						int[] previous = queue.get(index - 1);
+						if (costArr[val[0]][val[1]] < costArr[previous[0]][previous[1]])
 						{
-							tileID = tilemap.getFloorArray()[Tilemap.TOPLEFT];
-						}
-						else if (floorLeft && floorBottom)
-						{
-							tileID = tilemap.getFloorArray()[Tilemap.BOTTOMLEFT];
-						}
-						else if (floorRight && floorTop)
-						{
-							tileID = tilemap.getFloorArray()[Tilemap.TOPRIGHT];
-						}
-						else if (floorRight && floorBottom)
-						{
-							tileID = tilemap.getFloorArray()[Tilemap.BOTTOMRIGHT];
-						}
-						else if (floorLeft)
-						{
-							tileID = tilemap.getFloorArray()[Tilemap.LEFT];
-						}
-						else if (floorTop)
-						{
-							tileID = tilemap.getFloorArray()[Tilemap.TOP];
-						}
-						else if (floorRight)
-						{
-							tileID = tilemap.getFloorArray()[Tilemap.RIGHT];
-						}
-						else if (floorBottom)
-						{
-							tileID = tilemap.getFloorArray()[Tilemap.BOTTOM];
+							queue.set(index, queue.get(index - 1));
+							index--;
 						}
 						else
 						{
-							// Center (normal)
-							tileID = tilemap.getFloorArray()[Tilemap.CENTER];
+							break;
 						}
 					}
 
-					tiles[x][y] = tileID;
-					System.out.print(String.format("%2s ", tileID));
+					queue.set(index, val);
 				}
-				System.out.println();
+
+				// Get 'node' at the front of the queue and pop
+				int[] front = queue.get(0);
+				int nodeX = front[0], nodeY = front[1];
+				queue.remove(0);
+
+				// Set visited value to closed
+				visited[nodeX][nodeY] = 1;
+
+				// Check if end has been reached
+				if (nodeX == (int)endVec.x && nodeY == (int)endVec.y)
+				{
+					System.out.print("Path found!\n");
+					pathFound = true;
+
+					// Trace path back for hall array
+					int traceX = nodeX, traceY = nodeY;
+					hallArr[traceX][traceY] = true;
+
+					// First node's previous will be itself, so trace until then
+					while(previousNodes[traceX][traceY][0] != traceX || previousNodes[traceX][traceY][1] != traceY)
+					{
+						traceX = previousNodes[traceX][traceY][0];
+						traceY = previousNodes[traceX][traceY][1];
+						hallArr[traceX][traceY] = true;
+					}
+
+					hallArr[traceX][traceY] = true;
+					break;
+				}
+
+				// Offsets of neighbors on grid
+				int[][] neighborOffsets = new int[][]
+				{
+					{+1, 0}, // right
+					{-1, 0}, // left
+					{0, +1}, // bottom
+					{0, -1}, // right
+				};
+				
+				// Get g cost for current node
+				int currentGCost = Math.abs(nodeX - (int)beginVec.x) + Math.abs(nodeY - (int)beginVec.y);
+
+				for (int offsetIndex = 0; offsetIndex < neighborOffsets.length; offsetIndex++)
+				{
+					int[] currentOffset = neighborOffsets[offsetIndex];
+					int newSpotX = nodeX + currentOffset[0];
+					int newSpotY = nodeY + currentOffset[1];
+
+					// Make sure new spot is in the map's range
+					if (newSpotX >= 0 && newSpotX < width && newSpotY >= 0 && newSpotY < height
+						&& visited[newSpotX][newSpotY] != 1) // Make sure it's either in queue or visited
+					{
+						// Get new cost of neighbor from this node
+						int newNeighborCost = currentGCost + 1;
+
+						// Use manhattan distance to find heuristics for neighbor
+						int gCost = Math.abs(newSpotX - (int)beginVec.x) + Math.abs(newSpotY - (int)beginVec.y); // Distance from begin
+
+						// Check if the distance is more optimal and the node is not already in queue
+						if (newNeighborCost < gCost || visited[newSpotX][newSpotY] != 0)
+						{
+							int hCost = Math.abs(newSpotX - (int)endVec.x) + Math.abs(newSpotY - (int)endVec.y); // Distance from end
+
+							// Alter heuristic based on map
+							int fCost = (gCost + hCost) * 10;
+							if (!hallArr[newSpotX][newSpotY]) // Prefer to be in hall
+							{
+								fCost += 5;
+							}
+
+							// TODO: add heuristic modifier (?) for rooms. Or should this be a cost modifier?
+							// Heavily disfavor room
+							if (fCost == Integer.MAX_VALUE)  // change this to *spot in room* expression
+							{
+								fCost += 1000;
+							}
+
+							// Set cost and previous node for neighbor
+							costArr[newSpotX][newSpotY] = fCost;
+							previousNodes[newSpotX][newSpotY] = new int[]{nodeX, nodeY};
+
+							// Add to queue if not already there
+							if (visited[newSpotX][newSpotY] != 0)
+							{
+								visited[newSpotX][newSpotY] = 0;
+								queue.add(new int[]{newSpotX, newSpotY});
+							}
+						}
+					}
+				}
 			}
 		}
+
+		// Shrink rooms for padding/spacing purposes
+
+
+		for (int i = 0; i < rooms.size(); i++)
+		{
+			Rectangle currentRoom = rooms.get(i);
+			currentRoom.setWidth(currentRoom.getWidth() - 2);
+			currentRoom.setX(currentRoom.getX() + 1);
+			currentRoom.setHeight(currentRoom.getHeight() - 2);
+			currentRoom.setY(currentRoom.getY() + 1);
+
+			for (int x = (int)currentRoom.getX(); x < (int)currentRoom.getX() + currentRoom.getWidth(); x++)
+			{
+				for (int y = (int)currentRoom.getY(); y < (int)currentRoom.getY() + currentRoom.getHeight(); y++)
+				{
+					hallArr[x][y] = true;
+				}
+			}
+		}
+
+
+		for (int y = 0; y < height; y++)
+		{
+			for (int x = 0; x < width; x++)
+			{
+				if(hallArr[x][y])
+				{
+					System.out.print("▓");
+				}
+				else
+				{
+					System.out.print("░");
+				}
+			}
+			System.out.println();
+		}
+		System.out.println();
+
+		// Create tiles 2d array
+		tiles = new int[width][height];
+	}
+
+
+	// Compute the minimum spanning tree
+	private ArrayList<Edge> generateMST(ArrayList<Edge> graph)
+	{
+		// points to visit
+		ArrayList<Vector2> unvisited = new ArrayList<Vector2>();
+		ArrayList<Vector2> visited = new ArrayList<Vector2>();
+
+		// Add all vertices to unvisited
+		for (int i = 0; i < graph.size(); i++)
+		{
+			// Check if point is already in graph
+			boolean containsA = false, containsB = false;
+
+			for (int j = 0; j < unvisited.size(); j++)
+			{
+				if (!containsA && Triangulator.closeTo(unvisited.get(j), graph.get(i).getA()))
+				{
+					containsA = true;
+				}
+
+				if (!containsB && Triangulator.closeTo(unvisited.get(j), graph.get(i).getB()))
+				{
+					containsA = true;
+				}
+			}
+
+			if (!containsA)
+			{
+				unvisited.add(graph.get(i).getA());
+			}
+			if (!containsB)
+			{
+				unvisited.add(graph.get(i).getB());
+			}
+		}
+
+		// Add arbitratry point to begin at
+		visited.add(graph.get(0).getA());
+
+		// Final mst
+		ArrayList<Edge> mst = new ArrayList<Edge>();
+
+		while (unvisited.size() > 0)
+		{
+			// If running != true by the end, the traversal must be complete
+			boolean running = false;
+
+			Edge shortestEdge = null; // Java complains about uninitialized without this
+			double shortestEdgeLength = Double.POSITIVE_INFINITY;
+
+			// Iterate through edges to find connections
+			for (int i = 0; i < graph.size(); i++)
+			{
+				Edge current = graph.get(i);
+
+				// Check how many vertices have already been visited in edge
+				int visitedVerts = 0;
+				for (int j = 0; j < visited.size(); j++)
+				{
+					// Check if both vertices are already visited
+					if (Triangulator.closeTo(visited.get(j), current.getA()))
+					{
+						visitedVerts++;
+					}
+
+					if (Triangulator.closeTo(visited.get(j), current.getB()))
+					{
+						visitedVerts++;
+					}
+				}
+
+				// If 0 verts have been visited, it hasn't been reached by traversal yet
+				// If 2 verts have been visited, the entire edge has already been accounted for
+				if (visitedVerts == 1)
+				{
+					double length = Vector2.Distance(current.getA(), current.getB());
+					if (length < shortestEdgeLength)
+					{
+						shortestEdgeLength = length;
+						shortestEdge = current;
+						running = true;
+					}
+				}
+			}
+
+			if (running)
+			{
+				mst.add(shortestEdge);
+
+				// Remove points from this edge as it has just been visited
+				for (int i = 0; i < unvisited.size(); i++)
+				{
+					Vector2 current = unvisited.get(i);
+
+					if (Triangulator.closeTo(current, shortestEdge.getA()) || Triangulator.closeTo(current, shortestEdge.getB()))
+					{
+						// Remove and fix index for iteration
+						unvisited.remove(current);
+						i--;
+					}
+				}
+
+				// Add edge mst and its vertices to visited
+				visited.add(shortestEdge.getA());
+				visited.add(shortestEdge.getB());
+				mst.add(shortestEdge);
+			}
+			else
+			{
+				break;
+			}
+		}
+
+		return mst;
 	}
 
     public void draw(Vector2 cameraPos, WritableImage renderImg)
@@ -172,7 +431,35 @@ public class Map
 		PixelWriter writer = renderImg.getPixelWriter();
 		int tileSize = tilemap.getTileSize();
 
-		root.drawBounds(cameraPos, renderImg);
+		Canvas c = GameManager.getCanvas();
+		GraphicsContext ct = c.getGraphicsContext2D();
+		ct.clearRect(0, 0, c.getWidth(), c.getHeight());
+
+		ct.setFill(Color.RED);
+		for (int i = 0; i < rooms.size(); i++)
+		{
+			Rectangle current = rooms.get(i);
+			ct.fillRect(current.getX() - cameraPos.x, current.getY() - cameraPos.y, current.getWidth(), current.getHeight());
+		}
+
+		ct.setLineWidth(3);
+		ct.setStroke(Color.BLACK);
+		for (int i = 0; i < graph.size(); i++)
+		{
+			Edge current = graph.get(i);
+			Vector2 a = Vector2.Subtract(current.getA(), Camera.getPos());
+			Vector2 b = Vector2.Subtract(current.getB(), Camera.getPos());
+			ct.strokeLine(a.x, a.y, b.x, b.y);
+		}
+
+		ct.setStroke(Color.CYAN);
+		for (int i = 0; i < hallways.size(); i++)
+		{
+			Edge current = hallways.get(i);
+			Vector2 a = Vector2.Subtract(current.getA(), Camera.getPos());
+			Vector2 b = Vector2.Subtract(current.getB(), Camera.getPos());
+			ct.strokeLine(a.x, a.y, b.x, b.y);
+		}
 
 		for (int x = 0; x < width; x++)
 		{

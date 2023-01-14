@@ -6,6 +6,8 @@ import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
 import javafx.scene.image.*;
 import javafx.scene.image.ImageView;
@@ -31,6 +33,7 @@ public class GameManager
 	private static ImageView gameView;
     private static StringBuilder debugStr = new StringBuilder();
     private static Label lblDebug;
+	private static Canvas debugCanvas;
 
 	// Timers
 	private static AnimationTimer loadTimer = new AnimationTimer()
@@ -103,7 +106,7 @@ public class GameManager
 					tilemap.setSlice(wall, Tilemap.BOTTOM, 0, 1);
 					tilemap.setSlice(wall, Tilemap.BOTTOMRIGHT, 0, 2);
 
-					map = new Map(100, 100, 50, tilemap);
+					map = new Map(100, 100, 20, tilemap);
 					
 					System.out.println("Loading complete!");
 					
@@ -123,6 +126,11 @@ public class GameManager
 			gameView.setFitHeight(AppProps.REAL_HEIGHT);
 			gameView.setSmooth(false);
 			root.getChildren().add(gameView);
+
+			debugCanvas = new Canvas();
+			debugCanvas.setWidth(AppProps.REAL_WIDTH);
+			debugCanvas.setHeight(AppProps.REAL_HEIGHT);
+			root.getChildren().add(debugCanvas);
 
 			// Initialize input
 			InputManager.Init(scene);
@@ -180,6 +188,8 @@ public class GameManager
 		}
 		*/
 
+		GraphicsContext ct = debugCanvas.getGraphicsContext2D();
+
 		Camera.freeCam();
 		renderImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
 		map.draw(Camera.getPos(), renderImg);
@@ -202,5 +212,9 @@ public class GameManager
 	public static ImageView getGameView()
 	{
 		return gameView;
+	}
+	public static Canvas getCanvas()
+	{
+		return debugCanvas;
 	}
 }
