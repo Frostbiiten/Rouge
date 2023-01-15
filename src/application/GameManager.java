@@ -182,7 +182,7 @@ public class GameManager
 		lblDebug.setText(debugStr.toString());
 	}
 	
-	// Accessor methods
+	// Accessor methods for various game parts
 	public static Pane getRoot()
 	{
 		return root;
@@ -194,5 +194,9 @@ public class GameManager
 	public static Canvas getCanvas()
 	{
 		return debugCanvas;
+	}
+	public static Map getMap()
+	{
+		return map;
 	}
 }

@@ -3,7 +3,6 @@ package application.World;
 import java.util.ArrayList;
 import java.util.Random;
 
-import application.Camera;
 import application.GameManager;
 import application.Vector2;
 import javafx.scene.canvas.Canvas;
@@ -11,12 +10,12 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
-import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 
 public class Map
 {
 	private int width, height;
+	private boolean[][] floorTiles;
 	private int[][] tiles;
 	private Tilemap tilemap;
 
@@ -27,6 +26,7 @@ public class Map
 	private Rectangle startRoom;
 	private Rectangle endRoom;
 
+	// Constructor
 	public Map(int mapWidth, int mapHeight, int roomCount, Tilemap tilemap)
 	{
 		// Initialize width, height and tilemap
@@ -39,7 +39,7 @@ public class Map
 		ArrayList<Edge> hallways = getHallEdges();
 
 		// Create 2d array to store whether a tile is floor or not.
-		boolean[][] floorTiles = pathfindRooms(hallways);
+		floorTiles = pathfindRooms(hallways);
 
 		// Array to store the component the tile at [x][y] belongs to
 		int[][] component = new int[width][height];
@@ -56,9 +56,12 @@ public class Map
 		// Upscale to deal with some imperfections
 		floorTiles = upscale(floorTiles);
 
+		// Generate tiles to be displayed on screen
 		generateVisualTiles(floorTiles);
 	}
 
+	// INTERNAL METHODS:
+	// Method to generate tiles to be shown onscreen from tile boolean array
 	private void generateVisualTiles(boolean[][] floorTiles)
 	{
 		// Initialize tiles array to store actual visual tiles
@@ -919,6 +922,25 @@ public class Map
 		}
 
 		return mst;
+	}
+
+	// PUBLIC METHODS:
+
+	// Method to get the tilemap being ussed
+	public Tilemap getTilemap()
+	{
+		return tilemap;
+	}
+
+	// Method to get if the tile at [x][y] is a floor tile or not
+	public boolean getFloorTile(int x, int y)
+	{
+		if (x < 0 || x >= width || y < 0 || y >= height)
+		{
+			return false;
+		}
+		
+		return floorTiles[x][y];
 	}
 
 	// Method to draw the map's tiles onto the screen

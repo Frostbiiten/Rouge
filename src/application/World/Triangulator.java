@@ -11,11 +11,12 @@ public class Triangulator
 
 	public Triangulator()
 	{
-		
+		// no constructor code
 	}
 	
 	public ArrayList<Edge> triangulate(ArrayList<Vector2> points)
 	{
+		// Get bounds
 		Vector2 min = new Vector2(Double.MAX_VALUE, Double.MAX_VALUE);
 		Vector2 max = new Vector2(-Double.MAX_VALUE, -Double.MAX_VALUE);
 		
@@ -38,6 +39,7 @@ public class Triangulator
 		Vector2 p0 = new Vector2(min.x - 1, min.y - 1);
 		Vector2 p1 = new Vector2(mid.x - 1, max.y + Math.max(diff.x, diff.y) * 2);
 		Vector2 p2 = new Vector2(mid.x + Math.max(diff.x, diff.y) * 2, min.y - 1);
+
 		tris.add(new Triangle(p0, p1, p2));
 	
 		for (int i = 0; i < points.size(); i++)
