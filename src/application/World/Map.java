@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
 
+import application.AppProps;
 import application.GameManager;
 import application.Vector2;
 import javafx.scene.canvas.Canvas;
@@ -17,15 +18,16 @@ public class Map
 {
 	private int width, height;
 	private boolean[][] floorTiles;
-	private int[][][] tiles;
-	private Tilemap tilemap;
 
 	// Map generation
 	private ArrayList<Rectangle> rooms;
 	private ArrayList<Vector2> roomPositions;
-
 	private Rectangle startRoom;
 	private Rectangle endRoom;
+
+	// Drawing
+	private int[][][] tiles;
+	private Tilemap tilemap;
 
 	// Constructor
 	public Map(int mapWidth, int mapHeight, int roomCount, Tilemap tilemap)
@@ -69,6 +71,7 @@ public class Map
 		// By default their height is 1
 		tiles = new int[width][height][1];
 
+		// Base tiles
 		for (int y = 0; y < height; y++)
 		{
 			for (int x = 0; x < width; x++)
@@ -91,9 +94,11 @@ public class Map
 					}
 				}
 
+				// Check surroundings
 				boolean isFloor = floorTiles[x][y];
 				boolean aboveIsFloor = false, belowIsFloor = false;
 				boolean leftIsFloor = false, rightIsFloor = false;
+
 				if (y > 0)
 				{
 					aboveIsFloor = floorTiles[x][y - 1];
@@ -141,10 +146,8 @@ public class Map
 
 						if (y > 0)
 						{
-							int[] wallMatrixPositionA = new int[]{1, 4};
-							int[] wallMatrixPositionB = new int[]{1, 2};
-							tiles[x][y - 1][0] = tilemap.getWallSlice(wallMatrixPositionA[0], wallMatrixPositionA[1]);
-							tiles[x][y - 2][0] = tilemap.getWallSlice(wallMatrixPositionB[0], wallMatrixPositionB[1]);
+							int[] wallMatrixPosition = new int[]{1, 2};
+							tiles[x][y - 1][0] = tilemap.getWallSlice(wallMatrixPosition[0], wallMatrixPosition[1]);
 						}
 					}
 					else
@@ -152,7 +155,6 @@ public class Map
 						if (!belowIsFloor)
 						{
 							floorMatrixPosition[1]++;
-
 						}
 					}
 
@@ -202,7 +204,7 @@ public class Map
 
 							if (y > 1)
 							{
-								tiles[x - 1][y - 2][0] = tilemap.getWallSlice(0, 5);
+								tiles[x - 1][y - 1][0] = tilemap.getWallSlice(0, 5);
 							}
 						}
 					}
@@ -216,7 +218,7 @@ public class Map
 
 							if (y > 1)
 							{
-								tiles[x + 1][y - 2][0] = tilemap.getWallSlice(1, 5);
+								tiles[x + 1][y - 1][0] = tilemap.getWallSlice(1, 5);
 							}
 						}
 					}
@@ -259,7 +261,7 @@ public class Map
 			for (int x = 1; x < width - 1; x++)
 			{
 				// Check if it is a floor tile. Only run if it isn't
-				if (tilemap.getFloorPosition(tiles[x][y][0])[0] > 2)
+				if (!tilemap.isFloor(tiles[x][y][0]))
 				{
 					int[] wallMatrixPosition = tilemap.getWallPosition(tiles[x][y][0]);
 					if (wallMatrixPosition[0] == 1 && wallMatrixPosition[1] == 4)
@@ -322,22 +324,14 @@ public class Map
 					if (cornerX == 0 && cornerY == 0)
 					{
 						tiles[x][y][0] = tilemap.getFloorSlice(2, 5);
-						
-						if (y - 2 >= 0)
-						{
-							tiles[x - 1][y - 2][0] = tilemap.getWallSlice(2, 2);
-						}
+						tiles[x - 1][y - 1][0] = tilemap.getWallSlice(2, 2);
 					}
 
 					// Top right corner
 					if (cornerX == 2 && cornerY == 0)
 					{
 						tiles[x][y][0] = tilemap.getFloorSlice(0, 5);
-
-						if (y - 2 >= 0)
-						{
-							tiles[x + 1][y - 2][0] = tilemap.getWallSlice(0, 2);
-						}
+						tiles[x + 1][y - 1][0] = tilemap.getWallSlice(0, 2);
 					}
 
 					// Bottom right corner
@@ -362,22 +356,42 @@ public class Map
 		{
 			for (int x = 1; x < width - 1; x++)
 			{
-				// Check if it is a floor tile. Only run if it isn't
-				if (tilemap.getFloorPosition(tiles[x][y][0])[0] > 2)
+				// Only walls are extruded
+				if (!tilemap.isFloor(tiles[x][y][0]))
 				{
+					int[] wallMatrixPos = tilemap.getWallPosition(tiles[x][y][0]);
+					boolean isFront = wallMatrixPos[1] == 2;
+
+					if (isFront)
+					{
+						wallMatrixPos[1] = 4;
+						tiles[x][y][0] = tilemap.getWallSlice(wallMatrixPos[0], wallMatrixPos[1]);
+					}
+
+					for (int height = 1; height < 3; height++)
+					{
+						if (isFront)
+						{
+							wallMatrixPos[1]--;
+						}
+
+						tiles[x][y] = Arrays.copyOf(tiles[x][y], tiles[x][y].length + 1);
+						tiles[x][y][tiles[x][y].length - 1] = tilemap.getWallSlice(wallMatrixPos[0], wallMatrixPos[1]);
+					}
+
+					/*
 					int[] wallMatrixPos = tilemap.getWallPosition(tiles[x][y][0]);
 
 					if (wallMatrixPos[1] == 4)
 					{
-						for (int height = 1; height < 3; height++)
+						for (int height = 1; height < 2; height++)
 						{
 							wallMatrixPos[1]--;
 							tiles[x][y] = Arrays.copyOf(tiles[x][y], tiles[x][y].length + 1);
 
-							// Check if straight horizontal tile should be forced
+							// Check if straight horizontal tile should be forced depending on surroundings
 							if (wallMatrixPos[1] == 2 && height == 2 && (floorTiles[x + 1][y + 1] != floorTiles[x - 1][y + 1]))
 							{
-								System.out.println(floorTiles[x + 1][y + 1] + ", " + floorTiles[x - 1][y + 1]);
 								wallMatrixPos[0] = 1;
 							}
 
@@ -392,6 +406,7 @@ public class Map
 							tiles[x][y][tiles[x][y].length - 1] = tilemap.getWallSlice(wallMatrixPos[0], wallMatrixPos[1]);
 						}
 					}
+					*/
 				}
 			}
 		}
@@ -1082,6 +1097,10 @@ public class Map
 
 		// draw...
 
+		// TODO: replace with player position ...
+		double ditherX = AppProps.BASE_WIDTH / 2;
+		double ditherY = AppProps.BASE_HEIGHT / 2;
+
 		for (int x = 0; x < width; x++)
 		{
 			for (int y = 0; y < height; y++)
@@ -1104,7 +1123,27 @@ public class Map
 					// Make sure destination coordinate is onscreen
 					if (destX >= 0 && destX + tileSize < renderImg.getWidth() && destY >= 0 && destY + tileSize < renderImg.getHeight())
 					{
-						writer.setPixels(destX, destY, tileSize, tileSize, reader, srcX, srcY);
+						// Never dither 'base' of tilemap or back tiles, quick draw tiles outisde of dither range
+						if (height == 0 || !tilemap.isBackWall(tileID) || Math.sqrt(Math.pow(ditherX - destX, 2) + Math.pow(ditherY - destY, 2)) > 86)
+						{
+							writer.setPixels(destX, destY, tileSize, tileSize, reader, srcX, srcY);
+						}
+						else
+						{
+							for (int localX = 0; localX < tileSize; localX++)
+							{
+								for (int localY = 0; localY < tileSize; localY++)
+								{
+									double ditherIntensity = Math.sqrt(Math.pow(ditherX - (destX + localX), 2) + Math.pow(ditherY - (destY + localY), 2));
+									int ditherStep = (int)Math.ceil(Math.pow(0.02 * ditherIntensity, -1));
+
+									if (localX % ditherStep == 0 && localY % ditherStep == 0)
+									{
+										writer.setArgb(destX + localX, destY + localY, reader.getArgb(srcX + localX, srcY + localY));
+									}
+								}
+							}
+						}
 					}
 
 					destY -= tileSize;

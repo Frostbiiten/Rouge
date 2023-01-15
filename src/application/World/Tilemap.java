@@ -70,71 +70,13 @@ public class Tilemap
 	{
 		return walls[x][y];
 	}
-
-	public void getIdFromKernel(boolean[][] kernel)
+	public boolean isFloor(int id)
 	{
-		for (int y = 0; y < kernel.length; y++)
-		{
-			for (int x = 0; x < kernel.length; x++)
-			{
-				int offset = 1;
-				int id = 0;
-
-				// Top
-				if (kernel[1][0])
-				{
-					id += offset;
-				}
-				offset = offset <<= 1;
-
-				// Right
-				if (kernel[2][1])
-				{
-					id += offset;
-				}
-				offset = offset <<= 1;
-
-				// Down
-				if (kernel[1][2])
-				{
-					id += offset;
-				}
-				offset = offset <<= 1;
-
-				// Left
-				if (kernel[0][1])
-				{
-					id += offset;
-				}
-				offset = offset <<= 1;
-
-				// Top right
-				if (kernel[0][2])
-				{
-					id += offset;
-				}
-				offset = offset <<= 1;
-
-				// Bottom right
-				if (kernel[2][2])
-				{
-					id += offset;
-				}
-				offset = offset <<= 1;
-
-				// Bottom left
-				if (kernel[0][2])
-				{
-					id += offset;
-				}
-				offset = offset <<= 1;
-
-				// Top left
-				if (kernel[0][0])
-				{
-					id += offset;
-				}
-			}
-		}
+		return getFloorPosition(id)[0] < 3;
+	}
+	public boolean isBackWall(int id)
+	{
+		// Range of back wall tiles
+		return id >= 3 && id <= 5;
 	}
 }
