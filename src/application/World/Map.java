@@ -374,9 +374,11 @@ public class Map
 							wallMatrixPos[1]--;
 							tiles[x][y] = Arrays.copyOf(tiles[x][y], tiles[x][y].length + 1);
 
-							if (wallMatrixPos[1] == 2 && height == 2)
+							// Check if straight horizontal tile should be forced
+							if (wallMatrixPos[1] == 2 && height == 2 && (floorTiles[x + 1][y + 1] != floorTiles[x - 1][y + 1]))
 							{
-								//wallMatrixPos[0] = 1;
+								System.out.println(floorTiles[x + 1][y + 1] + ", " + floorTiles[x - 1][y + 1]);
+								wallMatrixPos[0] = 1;
 							}
 
 							tiles[x][y][tiles[x][y].length - 1] = tilemap.getWallSlice(wallMatrixPos[0], wallMatrixPos[1]);
