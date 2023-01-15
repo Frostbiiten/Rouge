@@ -83,30 +83,8 @@ public class GameManager
 					System.out.println("Loading map");
 
 					// Initialize map
-					Tilemap tilemap = new Tilemap("1", 16, 0, 1);
-					int[] floor = tilemap.getFloorArray();
-					tilemap.setSlice(floor, Tilemap.TOPLEFT, 4, 0);
-					tilemap.setSlice(floor, Tilemap.TOP, 5, 0);
-					tilemap.setSlice(floor, Tilemap.TOPRIGHT, 6, 0);
-					tilemap.setSlice(floor, Tilemap.LEFT, 4, 1);
-					tilemap.setSlice(floor, Tilemap.CENTER, 5, 1);
-					tilemap.setSlice(floor, Tilemap.RIGHT, 6, 1);
-					tilemap.setSlice(floor, Tilemap.BOTTOMLEFT, 4, 2);
-					tilemap.setSlice(floor, Tilemap.BOTTOM, 5, 2);
-					tilemap.setSlice(floor, Tilemap.BOTTOMRIGHT, 6, 2);
-
-					int[] wall = tilemap.getWallsArray();
-					tilemap.setSlice(wall, Tilemap.TOPLEFT, 0, 0);
-					tilemap.setSlice(wall, Tilemap.TOP, 1, 0);
-					tilemap.setSlice(wall, Tilemap.TOPRIGHT, 2, 0);
-					tilemap.setSlice(wall, Tilemap.LEFT, 4, 1);
-					tilemap.setSlice(wall, Tilemap.CENTER, 5, 1);
-					tilemap.setSlice(wall, Tilemap.RIGHT, 6, 1);
-					tilemap.setSlice(wall, Tilemap.BOTTOMLEFT, 0, 0);
-					tilemap.setSlice(wall, Tilemap.BOTTOM, 0, 1);
-					tilemap.setSlice(wall, Tilemap.BOTTOMRIGHT, 0, 2);
-
-					map = new Map(150, 100, 25, tilemap);
+					Tilemap tilemap = new Tilemap("1", 16);
+					map = new Map(100, 75, 25, tilemap);
 					
 					System.out.println("Loading complete!");
 					
