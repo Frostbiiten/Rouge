@@ -23,7 +23,7 @@ public class Tilemap
 		String basepath = String.format("assets/tilemaps/%s/", name);
 		imgTiles = new Image("file:" + basepath + "Tilemap.png");
 		
-		floors = new int[3][3];
+		floors = new int[3][7];
 		for (int x = 0; x < floors.length; x++)
 		{
 			for (int y = 0; y < floors[x].length; y++)
@@ -32,7 +32,7 @@ public class Tilemap
 			}
 		}
 
-		walls = new int[3][5];
+		walls = new int[3][7];
 		for (int x = 0; x < walls.length; x++)
 		{
 			for (int y = 0; y < walls[x].length; y++)

@@ -1,6 +1,7 @@
 package application.World;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Random;
 
 import application.GameManager;
@@ -16,7 +17,7 @@ public class Map
 {
 	private int width, height;
 	private boolean[][] floorTiles;
-	private int[][] tiles;
+	private int[][][] tiles;
 	private Tilemap tilemap;
 
 	// Map generation
@@ -65,7 +66,8 @@ public class Map
 	private void generateVisualTiles(boolean[][] floorTiles)
 	{
 		// Initialize tiles array to store actual visual tiles
-		tiles = new int[width][height];
+		// By default their height is 1
+		tiles = new int[width][height][1];
 
 		for (int y = 0; y < height; y++)
 		{
@@ -111,6 +113,11 @@ public class Map
 
 				if (isFloor)
 				{
+					if (tiles[x][y][0] != 0)
+					{
+						continue;
+					}
+
 					// Start from center tile
 					int[] floorMatrixPosition = new int[]{1, 1};
 
@@ -134,8 +141,10 @@ public class Map
 
 						if (y > 0)
 						{
-							int[] wallMatrixPosition = new int[]{1, 4};
-							tiles[x][y - 1] = tilemap.getWallSlice(wallMatrixPosition[0], wallMatrixPosition[1]);
+							int[] wallMatrixPositionA = new int[]{1, 4};
+							int[] wallMatrixPositionB = new int[]{1, 2};
+							tiles[x][y - 1][0] = tilemap.getWallSlice(wallMatrixPositionA[0], wallMatrixPositionA[1]);
+							tiles[x][y - 2][0] = tilemap.getWallSlice(wallMatrixPositionB[0], wallMatrixPositionB[1]);
 						}
 					}
 					else
@@ -150,126 +159,240 @@ public class Map
 					if (y < height - 1 && !belowIsFloor)
 					{
 						int[] wallMatrixPosition = new int[]{1, 0};
-						tiles[x][y + 1] = tilemap.getWallSlice(wallMatrixPosition[0], wallMatrixPosition[1]);
+						tiles[x][y + 1][0] = tilemap.getWallSlice(wallMatrixPosition[0], wallMatrixPosition[1]);
 					}
 
+					if (floorMatrixPosition[0] != 1)
+					{
+						// Start from center tile
+						int[] wallMatrixPosition = new int[]{floorMatrixPosition[0], floorMatrixPosition[1]};
 
-					tiles[x][y] = tilemap.getFloorSlice(floorMatrixPosition[0], floorMatrixPosition[1]);
+						if (!aboveIsFloor || !belowIsFloor)
+						{
+							wallMatrixPosition[1] = 1;
+						}
+
+						if (!rightIsFloor)
+						{
+							if (x < width - 1)
+							{
+								tiles[x + 1][y][0] = tilemap.getWallSlice(2 - wallMatrixPosition[0], wallMatrixPosition[1]);
+							}
+						}
+						
+						if (!leftIsFloor)
+						{
+							if (x > 0)
+							{
+								tiles[x - 1][y][0] = tilemap.getWallSlice(2 - wallMatrixPosition[0], wallMatrixPosition[1]);
+							}
+						}
+					}
+
+					tiles[x][y][0] = tilemap.getFloorSlice(floorMatrixPosition[0], floorMatrixPosition[1]);
+
+					// Corner tiles
+
+					// Top left
+					if (!leftIsFloor && !aboveIsFloor && rightIsFloor && belowIsFloor)
+					{
+						if (x > 0 && y > 0)
+						{
+							tiles[x - 1][y - 1][0] = tilemap.getWallSlice(2, 1);
+
+							if (y > 1)
+							{
+								tiles[x - 1][y - 2][0] = tilemap.getWallSlice(0, 5);
+							}
+						}
+					}
+
+					// Top right
+					if (!rightIsFloor && !aboveIsFloor && leftIsFloor && belowIsFloor)
+					{
+						if (x < width - 1 && y > 0)
+						{
+							tiles[x + 1][y - 1][0] = tilemap.getWallSlice(0, 1);
+
+							if (y > 1)
+							{
+								tiles[x + 1][y - 2][0] = tilemap.getWallSlice(1, 5);
+							}
+						}
+					}
+
+					// Bottom right
+					if (!rightIsFloor && aboveIsFloor && leftIsFloor && !belowIsFloor)
+					{
+						if (x < width - 1 && y < height - 1)
+						{
+							tiles[x + 1][y + 1][0] = tilemap.getWallSlice(1, 6);
+						}
+					}
+
+					// Bottom left
+					if (!leftIsFloor && aboveIsFloor && rightIsFloor && !belowIsFloor)
+					{
+						if (x > 0 && y < height - 1)
+						{
+							tiles[x - 1][y + 1][0] = tilemap.getWallSlice(0, 6);
+						}
+					}
 				}
 				else
 				{
-					if (tiles[x][y] != 0)
+					if (tiles[x][y][0] != 0)
 					{
 						continue;
 					}
 
 					// Start from base tile
 					int[] wallMatrixPosition = new int[]{1, 1};
-					tiles[x][y] = tilemap.getWallSlice(wallMatrixPosition[0], wallMatrixPosition[1]);
+					tiles[x][y][0] = tilemap.getWallSlice(wallMatrixPosition[0], wallMatrixPosition[1]);
 				}
 			}
 		}
 
-		// Horizontal sweep to deal with left/right alignment
-		for (int y = 0; y < height; y++)
+		//  Horzontal sweeps to fix left/right walls
+		for (int y = 1; y < height - 1; y++)
 		{
-			for (int x = 0; x < width; x++)
+			for (int x = 1; x < width - 1; x++)
 			{
-				boolean isFloor = tilemap.getFloorPosition(tiles[x][y])[0] < 3;
-
-				if (!isFloor)
+				// Check if it is a floor tile. Only run if it isn't
+				if (tilemap.getFloorPosition(tiles[x][y][0])[0] > 2)
 				{
-					// Search for bottom of walls
-					int[] wallMatrixPosition = tilemap.getWallPosition(tiles[x][y]);
-					if (wallMatrixPosition[1] != -1) // Bottom of wall y position
+					int[] wallMatrixPosition = tilemap.getWallPosition(tiles[x][y][0]);
+					if (wallMatrixPosition[0] == 1 && wallMatrixPosition[1] == 4)
 					{
-						boolean rightIsFloor = false, leftIsFloor = false;
+						// Check if they are floor tiles or wall tiles
+						boolean leftwall = tilemap.getFloorPosition(tiles[x - 1][y][0])[0] > 2;
+						boolean rightwall = tilemap.getFloorPosition(tiles[x + 1][y][0])[0] > 2;
 
-						if (x > 0)
-						{
-							leftIsFloor = tilemap.getFloorPosition(tiles[x - 1][y])[0] < 3;
-						}
+						// Make sure the booleans are referring to a specific tile
+						leftwall = leftwall &&  tilemap.getWallPosition(tiles[x - 1][y][0])[1] == 4;
+						rightwall = rightwall &&  tilemap.getWallPosition(tiles[x + 1][y][0])[1] == 4;
 
-						if (x < width - 1)
+						if (leftwall != rightwall)
 						{
-							rightIsFloor = tilemap.getFloorPosition(tiles[x + 1][y])[0] < 3;
-						}
-
-						// Only edit tile if one or the other is true (both or none will cancel)
-						if (rightIsFloor != leftIsFloor)
-						{
-							if (rightIsFloor)
+							if (leftwall)
 							{
 								wallMatrixPosition[0]++;
 							}
 
-							if (leftIsFloor)
+							if (rightwall)
 							{
 								wallMatrixPosition[0]--;
 							}
-
-							tiles[x][y] = tilemap.getWallSlice(wallMatrixPosition[0], wallMatrixPosition[1]);
 						}
+
+						tiles[x][y][0] = tilemap.getWallSlice(wallMatrixPosition[0], wallMatrixPosition[1]);
 					}
 				}
 			}
 		}
 
-		// Vertical sweep to fix walls
-		for (int x = 0; x < width; x++)
+		// Fix inner corner tiles
+		for (int y = 1; y < height - 1; y++)
 		{
-			for (int y = height - 1; y >= 0; y--)
+			for (int x = 1; x < width - 1; x++)
 			{
-				int id = tiles[x][y];
-				boolean isFloor = tilemap.getFloorPosition(id)[0] < 3;
-
-				// Check for wall
-				if (!isFloor)
+				// Create 3x3 kernel for processing corners
+				boolean[][] floorKernel = new boolean[3][3];
+				int floorTileCount = 0, cornerX = -1, cornerY = -1;
+				for (int localX = 0; localX < 3; localX++)
 				{
-					int[] oldMatrixPos = tilemap.getWallPosition(id);
-
-					if (oldMatrixPos[1] == 4) // Check for bottom of wall
+					for (int localY = 0; localY < 3; localY++)
 					{
-						int[] wallMatrixPosition = oldMatrixPos;
-
-						// Walls are 3 tiles high, because this loop is going up, fix it
-						int yOffset = 0;
-						while (yOffset < 4)
+						boolean val = floorKernel[localX][localY] = floorTiles[x + localX - 1][y + localY - 1];
+						if (val)
 						{
-							if(y - yOffset < 0)
-							{
-								break;
-							}
-
-							boolean offsetTileIsFloor = tilemap.getFloorPosition(tiles[x][y])[0] < 3;
-							boolean earlyEnd = offsetTileIsFloor;
-							if (!earlyEnd)
-							{
-								earlyEnd = tilemap.getWallPosition(tiles[x][y])[1] == 0;
-							}
-
-							if (earlyEnd)
-							{
-								break;
-							}
-
-							tiles[x][y] = tilemap.getWallSlice(wallMatrixPosition[0], wallMatrixPosition[1]);
-
-							y--;
-							yOffset++;
-							wallMatrixPosition[1]--;
+							floorTileCount++;
+						}
+						else
+						{
+							cornerX = localX;
+							cornerY = localY;
 						}
 					}
 				}
-				else
+
+				if (floorTileCount == 8)
 				{
-					// tiles[x][y] = tilemap.getWallSlice(wallMatrixPosition[0], wallMatrixPosition[1]);
+					// Top left corner
+					if (cornerX == 0 && cornerY == 0)
+					{
+						tiles[x][y][0] = tilemap.getFloorSlice(2, 5);
+						
+						if (y - 2 >= 0)
+						{
+							tiles[x - 1][y - 2][0] = tilemap.getWallSlice(2, 2);
+						}
+					}
+
+					// Top right corner
+					if (cornerX == 2 && cornerY == 0)
+					{
+						tiles[x][y][0] = tilemap.getFloorSlice(0, 5);
+
+						if (y - 2 >= 0)
+						{
+							tiles[x + 1][y - 2][0] = tilemap.getWallSlice(0, 2);
+						}
+					}
+
+					// Bottom right corner
+					if (cornerX == 2 && cornerY == 2)
+					{
+						tiles[x][y][0] = tilemap.getFloorSlice(0, 3);
+						tiles[x + 1][y + 1][0] = tilemap.getWallSlice(0, 0);
+					}
+
+					// Bottom left corner
+					if (cornerX == 0 && cornerY == 2)
+					{
+						tiles[x][y][0] = tilemap.getFloorSlice(2, 3);
+						tiles[x - 1][y + 1][0] = tilemap.getWallSlice(2, 0);
+					}
 				}
 			}
 		}
 
+		// Extrude walls vertically
+		for (int y = 1; y < height - 1; y++)
+		{
+			for (int x = 1; x < width - 1; x++)
+			{
+				// Check if it is a floor tile. Only run if it isn't
+				if (tilemap.getFloorPosition(tiles[x][y][0])[0] > 2)
+				{
+					int[] wallMatrixPos = tilemap.getWallPosition(tiles[x][y][0]);
 
+					if (wallMatrixPos[1] == 4)
+					{
+						for (int height = 1; height < 3; height++)
+						{
+							wallMatrixPos[1]--;
+							tiles[x][y] = Arrays.copyOf(tiles[x][y], tiles[x][y].length + 1);
 
+							if (wallMatrixPos[1] == 2 && height == 2)
+							{
+								//wallMatrixPos[0] = 1;
+							}
+
+							tiles[x][y][tiles[x][y].length - 1] = tilemap.getWallSlice(wallMatrixPos[0], wallMatrixPos[1]);
+						}
+					}
+					else
+					{
+						for (int height = 1; height < 2; height++)
+						{
+							tiles[x][y] = Arrays.copyOf(tiles[x][y], tiles[x][y].length + 1);
+							tiles[x][y][tiles[x][y].length - 1] = tilemap.getWallSlice(wallMatrixPos[0], wallMatrixPos[1]);
+						}
+					}
+				}
+			}
+		}
 	}
 
 	// Method to scale map by a 2 to remove elements with 1 width/height (like thin halls) and other various imperfections
@@ -965,19 +1088,24 @@ public class Map
 				int destX = x * tileSize - (int)cameraPos.x;
 				int destY = y * tileSize - (int)cameraPos.y;
 
-				int tileID = tiles[x][y];
-
-				// Source x and y coordinate of tile to be drawn from tilemap
-				int srcY = tileID / (int)(tilemap.getTilesImg().getWidth() / tileSize);
-				int srcX = tileID - (srcY * (int)(tilemap.getTilesImg().getWidth() / tileSize));
-
-				srcX *= tileSize;
-				srcY *= tileSize;
-				
-				// Make sure destination coordinate is onscreen
-				if (destX >= 0 && destX + tileSize < renderImg.getWidth() && destY >= 0 && destY + tileSize < renderImg.getHeight())
+				for (int height = 0; height < tiles[x][y].length; height++)
 				{
-					writer.setPixels(destX, destY, tileSize, tileSize, reader, srcX, srcY);
+					int tileID = tiles[x][y][height];
+
+					// Source x and y coordinate of tile to be drawn from tilemap
+					int srcY = tileID / (int)(tilemap.getTilesImg().getWidth() / tileSize);
+					int srcX = tileID - (srcY * (int)(tilemap.getTilesImg().getWidth() / tileSize));
+
+					srcX *= tileSize;
+					srcY *= tileSize;
+					
+					// Make sure destination coordinate is onscreen
+					if (destX >= 0 && destX + tileSize < renderImg.getWidth() && destY >= 0 && destY + tileSize < renderImg.getHeight())
+					{
+						writer.setPixels(destX, destY, tileSize, tileSize, reader, srcX, srcY);
+					}
+
+					destY -= tileSize;
 				}
 			}
 		}
