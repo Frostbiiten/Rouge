@@ -4,15 +4,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
 
-import application.AppProps;
 import application.GameManager;
 import application.Vector2;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.shape.Rectangle;
+import application.Util;
 
 public class Map
 {
@@ -28,6 +26,8 @@ public class Map
 	// Drawing
 	private int[][][] tiles;
 	private Tilemap tilemap;
+	private boolean ditheringEnabled;
+	private double ditherShrink = 1;
 
 	// Constructor
 	public Map(int mapWidth, int mapHeight, int roomCount, Tilemap tilemap)
@@ -61,6 +61,9 @@ public class Map
 
 		// Generate tiles to be displayed on screen
 		generateVisualTiles(floorTiles);
+
+		// Default dither disabled
+		ditheringEnabled = false;
 	}
 
 	// INTERNAL METHODS:
@@ -855,7 +858,7 @@ public class Map
 		rooms = new ArrayList<Rectangle>();
 		roomPositions = new ArrayList<Vector2>();
 
-		int maxWidth = 12, minWidth = 10, maxHeight = 12, minHeight = 10;
+		int maxWidth = 8, minWidth = 6, maxHeight = 8, minHeight = 6;
 
 		Random rand = new Random();
 		int attempts = 0;
@@ -1072,6 +1075,13 @@ public class Map
 		return tilemap;
 	}
 
+	public Vector2 getTilePosition(double x, double y)
+	{
+		int tileX = (int)(x / getTilemap().getTileSize());
+		int tileY = (int)(y / getTilemap().getTileSize());
+		return new Vector2(tileX, tileY);
+	}
+
 	// Method to get if the tile at [x][y] is a floor tile or not
 	public boolean getFloorTile(int x, int y)
 	{
@@ -1083,23 +1093,39 @@ public class Map
 		return floorTiles[x][y];
 	}
 
+	// Method to get the start room in the map
+	public Rectangle getStartRoom()
+	{
+		return startRoom;
+	}
+	
+	// Method to get the end room in the map
+	public Rectangle getEndRoom()
+	{
+		return endRoom;
+	}
+
+
 	// Method to draw the map's tiles onto the screen
     public void draw(Vector2 cameraPos, WritableImage renderImg)
 	{
+		if (ditheringEnabled)
+		{
+			ditherShrink = Util.lerp(ditherShrink, 1, 0.1);
+		}
+		else
+		{
+			ditherShrink = Util.lerp(ditherShrink, 0, 0.01);
+		}
+
 		// Get pixel reader and writer to draw from tileset to screen
 		PixelReader reader = tilemap.getTilesImg().getPixelReader();
 		PixelWriter writer = renderImg.getPixelWriter();
 		int tileSize = tilemap.getTileSize();
 
-		Canvas c = GameManager.getCanvas();
-		GraphicsContext ct = c.getGraphicsContext2D();
-		ct.clearRect(0, 0, c.getWidth(), c.getHeight());
-
-		// draw...
-
 		// TODO: replace with player position ...
-		double ditherX = AppProps.BASE_WIDTH / 2;
-		double ditherY = AppProps.BASE_HEIGHT / 2;
+		double ditherX = GameManager.getPlayer().getPosition().x - cameraPos.x;
+		double ditherY = GameManager.getPlayer().getPosition().y - cameraPos.y;
 
 		for (int x = 0; x < width; x++)
 		{
@@ -1124,7 +1150,7 @@ public class Map
 					if (destX >= 0 && destX + tileSize < renderImg.getWidth() && destY >= 0 && destY + tileSize < renderImg.getHeight())
 					{
 						// Never dither 'base' of tilemap or back tiles, quick draw tiles outisde of dither range
-						if (height == 0 || !tilemap.isBackWall(tileID) || Math.sqrt(Math.pow(ditherX - destX, 2) + Math.pow(ditherY - destY, 2)) > 86)
+						if (!tilemap.isBackWall(tileID) || getDitherIntensity(ditherX, ditherY, destX, destY) > 86)
 						{
 							writer.setPixels(destX, destY, tileSize, tileSize, reader, srcX, srcY);
 						}
@@ -1134,7 +1160,7 @@ public class Map
 							{
 								for (int localY = 0; localY < tileSize; localY++)
 								{
-									double ditherIntensity = Math.sqrt(Math.pow(ditherX - (destX + localX), 2) + Math.pow(ditherY - (destY + localY), 2));
+									double ditherIntensity =  getDitherIntensity(ditherX, ditherY, destX + localX, destY + localY);
 									int ditherStep = (int)Math.ceil(Math.pow(0.02 * ditherIntensity, -1));
 
 									if (localX % ditherStep == 0 && localY % ditherStep == 0)
@@ -1151,4 +1177,14 @@ public class Map
 			}
 		}
     }
+
+	public void setDithering(boolean dither)
+	{
+		ditheringEnabled = dither;
+	}
+
+	private double getDitherIntensity(double srcX, double srcY, double destX, double destY)
+	{
+		return Math.sqrt(Math.pow(srcX - destX, 2) + Math.pow(srcY - destY, 2)) * ditherShrink;
+	}
 }

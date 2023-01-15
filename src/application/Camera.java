@@ -6,7 +6,13 @@ public class Camera
 	
 	public static void setPos(Vector2 pos)
 	{
-		cameraPos = pos;
+		cameraPos = new Vector2(pos);
+	}
+
+	public static void setPos(double x, double y)
+	{
+		cameraPos.x = x;
+		cameraPos.x = y;
 	}
 
 	public static void move(double x, double y)
@@ -15,7 +21,6 @@ public class Camera
 		cameraPos.y += y;
 	}
 
-	// Final prevents returned position from being modified
 	public static Vector2 getPos()
 	{
 		return cameraPos;

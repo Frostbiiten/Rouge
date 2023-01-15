@@ -6,13 +6,13 @@ import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
 import javafx.scene.image.*;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
@@ -27,13 +27,13 @@ public class GameManager
 	private static long currentTime, deltaTime;
 	private static long frame;
 	private static Map map;
+	private static Player player;
 
 	// Render at proper resolution
 	private static WritableImage renderImg;
 	private static ImageView gameView;
     private static StringBuilder debugStr = new StringBuilder();
     private static Label lblDebug;
-	private static Canvas debugCanvas;
 
 	// Timers
 	private static AnimationTimer loadTimer = new AnimationTimer()
@@ -82,9 +82,20 @@ public class GameManager
 				{
 					System.out.println("Loading map");
 
-					// Initialize map
+					// Load tilemap
 					Tilemap tilemap = new Tilemap("1", 16);
-					map = new Map(100, 75, 25, tilemap);
+
+					// Set background color
+					root.setStyle(String.format("-fx-background-color: rgb(%d, %d, %d)", 20, 20, 18));
+
+					// Create map and get start room
+					map = new Map(80, 60, 25, tilemap);
+					Rectangle startRoom = map.getStartRoom();
+
+					// Initialize player, set position to center of spawnroom
+					player = new Player();
+					player.setPosition((startRoom.getX() + startRoom.getWidth() / 2) * tilemap.getTileSize(), (startRoom.getY() + startRoom.getHeight() / 2) * tilemap.getTileSize());
+					Camera.setPos(player.getPosition().x - AppProps.BASE_WIDTH / 2, player.getPosition().y - AppProps.BASE_HEIGHT / 2);
 					
 					System.out.println("Loading complete!");
 					
@@ -104,11 +115,6 @@ public class GameManager
 			gameView.setFitHeight(AppProps.REAL_HEIGHT);
 			gameView.setSmooth(false);
 			root.getChildren().add(gameView);
-
-			debugCanvas = new Canvas();
-			debugCanvas.setWidth(AppProps.REAL_WIDTH);
-			debugCanvas.setHeight(AppProps.REAL_HEIGHT);
-			root.getChildren().add(debugCanvas);
 
 			// Initialize input
 			InputManager.Init(scene);
@@ -166,17 +172,20 @@ public class GameManager
 		}
 		*/
 
-		GraphicsContext ct = debugCanvas.getGraphicsContext2D();
+		double timeModifier = (100.0/60) / (deltaTime / 10000000.0);
 
-		Camera.freeCam();
+		// Update player
+		player.update();
+
 		renderImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
 		map.draw(Camera.getPos(), renderImg);
+		player.draw(renderImg);
 		gameView.setImage(renderImg);
-		//map.draw(Camera.getPos(), renderImg);
 
 		// Update
 		addDebugText("ms ", String.format("%.2f", deltaTime / 1000000.0));
 		addDebugText("fps ", String.format("%.2f",  1 / (deltaTime / 1000000000.0)));
+		addDebugText("mod ", String.format("%.2f",  timeModifier));
 
 		// Set debug text
 		lblDebug.setText(debugStr.toString());
@@ -191,12 +200,12 @@ public class GameManager
 	{
 		return gameView;
 	}
-	public static Canvas getCanvas()
-	{
-		return debugCanvas;
-	}
 	public static Map getMap()
 	{
 		return map;
+	}
+	public static Player getPlayer()
+	{
+		return player;
 	}
 }
