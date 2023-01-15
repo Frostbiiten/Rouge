@@ -78,14 +78,15 @@ public class Player
 		if (bottomWall)
 		{
 			double wallDist = tileSize - ((position.y + radius.y + velocity.y) - (bottomTilePos.y * tileSize));
-			System.out.println(wallDist);
 			if (wallDist <= 0)
 			{
 				velocity.y = -wallDist;
 			}
 		}
 
-		map.setDithering(bottomWall);
+		// Set dithering enabled if view is obstructed by wall
+		Vector2 ditherCheckPos = map.getTilePosition(position.x, position.y + radius.y);
+		map.setDithering(!map.getFloorTile((int)ditherCheckPos.x, (int)ditherCheckPos.y + 2) || bottomWall);
 
 		// Move player
 		position.x += velocity.x;

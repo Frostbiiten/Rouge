@@ -1111,11 +1111,11 @@ public class Map
 	{
 		if (ditheringEnabled)
 		{
-			ditherShrink = Util.lerp(ditherShrink, 1, 0.1);
+			ditherShrink = Util.lerp(ditherShrink, 2, 0.15);
 		}
 		else
 		{
-			ditherShrink = Util.lerp(ditherShrink, 0, 0.01);
+			ditherShrink = Util.lerp(ditherShrink, 100, 0.001);
 		}
 
 		// Get pixel reader and writer to draw from tileset to screen
@@ -1145,7 +1145,7 @@ public class Map
 
 					srcX *= tileSize;
 					srcY *= tileSize;
-					
+
 					// Make sure destination coordinate is onscreen
 					if (destX >= 0 && destX + tileSize < renderImg.getWidth() && destY >= 0 && destY + tileSize < renderImg.getHeight())
 					{
