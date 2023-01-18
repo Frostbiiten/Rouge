@@ -115,7 +115,6 @@ public class Player
 		position.y += velocity.y;
 		updateMask();
 
-
 		// Move camera
 		Vector2 camPos = new Vector2(position.x - AppProps.BASE_WIDTH / 2, position.y - AppProps.BASE_HEIGHT / 2);
 		Camera.setPos(Vector2.Lerp(Camera.getPos(), camPos, 0.4));

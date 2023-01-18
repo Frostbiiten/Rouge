@@ -1,8 +1,5 @@
 package application;
-import javafx.geometry.HPos;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.geometry.VPos;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -14,7 +11,7 @@ import javafx.scene.text.Font;
 
 public class UI
 {
-	private static GridPane uiPane;
+	public static GridPane uiPane;
 	
 	// Health
 	private final static int heartImageSize = 20;
@@ -22,7 +19,7 @@ public class UI
 	private static HBox heartsBox;
 	private static int previousHp;
 
-	public static void Init(Pane root)
+	public static void init(Pane root)
 	{
 		uiPane = new GridPane();
 		uiPane.setPadding(new Insets(10));

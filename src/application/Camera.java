@@ -25,8 +25,6 @@ public class Camera
 			@Override
 			public void handle(ActionEvent event)
 			{
-				System.out.println(currentShakeMagnitude);
-
 				// Add shake offset (negate for shaking back and forth effect)
 				shakeOffset.x = -shakeOffset.x;
 				shakeOffset.y = -shakeOffset.y;
@@ -79,6 +77,16 @@ public class Camera
 	public static Vector2 getPos()
 	{
 		return Vector2.Add(cameraPos, shakeOffset);
+	}
+
+	public static double getX()
+	{
+		return cameraPos.x + shakeOffset.x;
+	}
+
+	public static double getY()
+	{
+		return cameraPos.y + shakeOffset.y;
 	}
 
 	public static Vector2 getPosNoShake()

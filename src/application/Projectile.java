@@ -2,12 +2,13 @@ package application;
 
 import javafx.geometry.Bounds;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.shape.Rectangle;
 
 public abstract class Projectile
 {
 	// Visual
-	protected Image imgProjectile;
+	protected AnimatedSprite sprite;
 
 	// Movement
 	protected double xPos, yPos;
@@ -23,14 +24,20 @@ public abstract class Projectile
 	// The midlife, when the projectile is travelling through the air
 	// The endlife, when the projectile collides with an object/wall
 
-	// Shot
+	// Constructor is called when first shot
 	Projectile (double xPos, double yPos, double xVel, double yVel, boolean playerOwned, double radius)
 	{
-		this.xPos += xVel;
-		this.yPos += yVel;
+		this.xPos = xPos;
+		this.yPos = yPos;
+		this.xVel = xVel;
+		this.yVel = yVel;
 		this.playerOwned = playerOwned;
 		this.radius = radius;
 		this.mask = new Rectangle(xPos - radius, yPos - radius, radius * 1.8, radius * 1.8);
+
+		// Create sprite and play
+		sprite = new AnimatedSprite(new Image("file:assets/objects/bullet0.png"), 15, 8, 1, true);
+		sprite.play();
 	}
 
 	// Moved
@@ -71,7 +78,8 @@ public abstract class Projectile
 	{
 		return yVel;
 	}
-	public Image getImage() {
-		return imgProjectile;
+	public ImageView getNode()
+	{
+		return sprite.getNode();
 	}
 }

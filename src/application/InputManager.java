@@ -14,7 +14,7 @@ public class InputManager
 	// Mouse position relative to top left of scene
 	private static Vector2 mousePos;
 	
-	public static void Init(Scene scene)
+	public static void init(Scene scene)
 	{
 		directionalInput = new Vector2(0, 0);
 		mousePos = new Vector2(0, 0);

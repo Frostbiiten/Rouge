@@ -6,6 +6,7 @@ import application.World.Map;
 import application.World.Tilemap;
 import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
+import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
@@ -34,9 +35,15 @@ public class GameManager
 	// Game objects
 	private static ArrayList<Projectile> projectiles;
 
-	// Render at proper resolution
-	private static WritableImage renderImg;
-	private static ImageView gameView;
+	// Rendering
+	private static WritableImage bgImg;
+	private static int bgImgDepthIndex;
+	private static WritableImage fgImg;
+	private static ImageView bgView;
+	private static ImageView fgView;
+	private static Tilemap tilemap;
+
+	// Debug
     private static StringBuilder debugStr = new StringBuilder();
     private static Label lblDebug;
 
@@ -86,11 +93,10 @@ public class GameManager
 			{
 				public void run()
 				{
-					
 					System.out.println("Loading map");
 
 					// Load tilemap
-					Tilemap tilemap = new Tilemap("1", 16);
+					tilemap = new Tilemap("1", 16);
 
 					// Set background color
 					root.setStyle(String.format("-fx-background-color: rgb(%d, %d, %d)", 20, 20, 18));
@@ -99,8 +105,15 @@ public class GameManager
 					map = new Map(80, 60, 25, tilemap);
 					Rectangle startRoom = map.getStartRoom();
 
+					System.out.println("Loading projectiles");
+
 					// Create projectile arraylist
 					projectiles = new ArrayList<Projectile>();
+					
+					System.out.println("Loading input");
+
+					// Initialize input
+					InputManager.init(scene);
 
 					System.out.println("Loading player");
 
@@ -111,6 +124,33 @@ public class GameManager
 					// Initialize camera, set center to center of spawn room
 					Camera.init();
 					Camera.setPos(player.getPosition().x - AppProps.BASE_WIDTH / 2, player.getPosition().y - AppProps.BASE_HEIGHT / 2);
+
+					System.out.println("Loading imageviews");
+
+					// Set up game imageview
+					bgView = new ImageView();
+					bgView.setFitWidth(AppProps.REAL_WIDTH);
+					bgView.setFitHeight(AppProps.REAL_HEIGHT);
+
+					fgView = new ImageView();
+					fgView.setFitWidth(AppProps.REAL_WIDTH);
+					fgView.setFitHeight(AppProps.REAL_HEIGHT);
+
+					root.getChildren().addAll(bgView, fgView);
+					bgImgDepthIndex = root.getChildren().size() - 2;
+					
+					// Initialize UI
+					UI.init(root);
+
+					// Initialize VFX
+					VFX.init();
+
+					// Create sprite and play
+					AnimatedSprite sprite = new AnimatedSprite(new Image("file:assets/objects/bullet0.png"), 15, 8, 1, true);
+					sprite.play();
+					sprite.play();
+					UI.uiPane.add(sprite.getNode(), 0, 0);
+					addAnimatedSprite(sprite);
 					
 					System.out.println("Loading complete!");
 					
@@ -121,18 +161,6 @@ public class GameManager
 
 			});
 
-			// Set up game imageview
-			gameView = new ImageView();
-			gameView.setFitWidth(AppProps.REAL_WIDTH);
-			gameView.setFitHeight(AppProps.REAL_HEIGHT);
-			gameView.setSmooth(false);
-			root.getChildren().add(gameView);
-
-			// Initialize input
-			InputManager.Init(scene);
-			
-			// Initialize UI
-			UI.Init(root);
 
 			// Add debug label with background
 			Label lblDebugTitle = new Label();
@@ -171,8 +199,10 @@ public class GameManager
 	// Update during loading screens
 	public static void loadUpdate(long deltaTime)
 	{
-		renderImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
+		fgImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
+		bgImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
 	}
+
 	public static void update(long deltaTime)
 	{
 		// Clear by resetting
@@ -187,14 +217,30 @@ public class GameManager
 		}
 		*/
 
-		// Update every bullet
+		// Update every projectile
 		for (int projectile = 0; projectile < projectiles.size(); projectile++)
 		{
-			projectiles.get(projectile).update();
+			Projectile currentProjectile = projectiles.get(projectile);
+			currentProjectile.update();
+
+			// Get the position on the map in terms of tiles
+			int tileX = (int)(currentProjectile.getXPos() / tilemap.getTileSize());
+			int tileY = (int)(currentProjectile.getYPos() / tilemap.getTileSize());
+
+			// If the projectile is outide the map or hit a wall, destroy it
+			if (tileX < 0 || tileX >= map.getWidthInTiles() || tileY < 0 || tileY >= map.getHeightInTiles() || !map.getFloorTile(tileX, tileY))
+			{
+				currentProjectile.collide();
+				root.getChildren().remove(currentProjectile.getNode());
+				projectiles.remove(currentProjectile);
+			}
 		}
 
 		// Update player
 		player.update();
+
+		// Update vfx
+		VFX.update();
 
 		// Update
 		addDebugText("ms ", String.format("%.2f", deltaTime / 1000000.0));
@@ -204,19 +250,39 @@ public class GameManager
 		// Set debug text
 		lblDebug.setText(debugStr.toString());
 	}
+
 	public static void draw(long deltaTime)
 	{
-		renderImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
-		map.draw(Camera.getPos(), renderImg);
-		player.draw(renderImg);
-		gameView.setImage(renderImg);
+		fgImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
+		bgImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
+
+
+		map.draw(Camera.getPos(), bgImg, true);
+		player.draw(bgImg);
+
+		map.draw(Camera.getPos(), fgImg, false);
+		fgView.setImage(fgImg);
+		bgView.setImage(bgImg);
 	}
 	
 	// Game feature methods
+
+	// Method to spawn projectile and add image to pane
 	public static void spawnProjectile(Projectile projectile)
 	{
 		projectiles.add(projectile);
+		
+		// Add projectile to index just above bg to render above background but under foreground
+		root.getChildren().add(bgImgDepthIndex + 1,  projectile.getNode());
 	}
+
+	// Method to add animated sprite to the plane
+	public static void addAnimatedSprite(AnimatedSprite sprite)
+	{
+		// Add sprite above bg, below fg
+		root.getChildren().add(bgImgDepthIndex + 1,  sprite.getNode());
+	}
+
 	public static boolean playerCollision(Projectile projectile)
 	{
 		return projectile.getMask().intersects(player.getMask());
@@ -229,7 +295,7 @@ public class GameManager
 	}
 	public static ImageView getGameView()
 	{
-		return gameView;
+		return bgView;
 	}
 	public static Map getMap()
 	{

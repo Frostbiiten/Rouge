@@ -1108,17 +1108,31 @@ public class Map
 		return endRoom;
 	}
 
-
-	// Method to draw the map's tiles onto the screen
-    public void draw(Vector2 cameraPos, WritableImage renderImg)
+	// Methods to get the width and height of the map in terms of tiles
+	public int getWidthInTiles()
 	{
-		if (ditheringEnabled)
+		return floorTiles.length;
+	}
+
+	public int getHeightInTiles()
+	{
+		return floorTiles[0].length;
+	}
+
+	// Method to draw the map's tiles onto the screen. Render either the floor or elevated tiles
+    public void draw(Vector2 cameraPos, WritableImage renderImg, boolean floor)
+	{
+		// No dithering on floor
+		if (!floor)
 		{
-			ditherShrink = Util.lerp(ditherShrink, 2, 0.15);
-		}
-		else
-		{
-			ditherShrink = Util.lerp(ditherShrink, 100, 0.001);
+			if (ditheringEnabled)
+			{
+				ditherShrink = Util.lerp(ditherShrink, 2, 0.15);
+			}
+			else
+			{
+				ditherShrink = Util.lerp(ditherShrink, 100, 0.001);
+			}
 		}
 
 		// Get pixel reader and writer to draw from tileset to screen
@@ -1130,14 +1144,28 @@ public class Map
 		double ditherX = GameManager.getPlayer().getPosition().x - cameraPos.x;
 		double ditherY = GameManager.getPlayer().getPosition().y - cameraPos.y;
 
+		// Floor rendering starts at 0, above it starts at 1
+		int initialHeight = 1;
+		if (floor)
+		{
+			initialHeight = 0;
+		}
+
 		for (int x = 0; x < width; x++)
 		{
 			for (int y = 0; y < height; y++)
 			{
 				// Base destination x and y coordinate of tile to be drawn (without offsets for edges)
 				int baseDestX = x * tileSize - (int)cameraPos.x;
+				int maxHeight = tiles[x][y].length;
 
-				for (int height = 0; height < tiles[x][y].length; height++)
+				// Only render first layer if rendering floor
+				if (floor)
+				{
+					maxHeight = 1;
+				}
+
+				for (int height = initialHeight; height < maxHeight; height++)
 				{
 					int tileID = tiles[x][y][height];
 
@@ -1151,42 +1179,46 @@ public class Map
 					srcX *= tileSize;
 					srcY *= tileSize;
 
+					// Check if coordinate is on screen for both the x and y axis
 					boolean xDraw = baseDestX > -tileSize && baseDestX < renderImg.getWidth();
 					boolean yDraw = baseDestY > -tileSize && baseDestY < renderImg.getHeight();
-					int drawWidth = tileSize, drawHeight = tileSize;
 
-					// Actual draw destination coordinates
-					int destX = baseDestX;
-
-					// Check if coordinate is at the edge on the x axis
-					if (destX <= 0 && destX > -tileSize)
-					{
-						drawWidth = tileSize + destX;
-						srcX -= destX;
-						destX = 0;
-					}
-					else if (destX + tileSize >= renderImg.getWidth() && destX < renderImg.getWidth())
-					{
-						drawWidth = (int)renderImg.getWidth() - destX;
-						destX = (int)renderImg.getWidth() - drawWidth;
-					}
-
-					int destY = baseDestY;
-					if (destY <= 0 && destY > -tileSize)
-					{
-						drawHeight = tileSize - destY;
-						srcY -= destY;
-						destY = 0;
-					}
-					else if (destY + tileSize >= renderImg.getHeight() && destY < renderImg.getHeight())
-					{
-						drawHeight = (int)renderImg.getHeight() - destY;
-						destY = (int)renderImg.getHeight() - drawHeight;
-					}
-
-					// Make sure destination coordinate is onscreen
+					// Only draw if it is on the screen
 					if (xDraw && yDraw)
 					{
+						// Create variables to represent the width and height of the 'sample' going to be taken from the source image
+						int drawWidth = tileSize, drawHeight = tileSize;
+
+						// Actual draw destination coordinates
+						int destX = baseDestX;
+
+						// Check if coordinate is at the edge on the x axis, adjust properties accoridngly to draw correctly
+						if (destX <= 0 && destX > -tileSize)
+						{
+							drawWidth = tileSize + destX;
+							srcX -= destX;
+							destX = 0;
+						}
+						else if (destX + tileSize >= renderImg.getWidth() && destX < renderImg.getWidth())
+						{
+							drawWidth = (int)renderImg.getWidth() - destX;
+							destX = (int)renderImg.getWidth() - drawWidth;
+						}
+
+						// Check if coordinate is at the edge on the y axis, adjust properties accoridngly to draw correctly
+						int destY = baseDestY;
+						if (destY <= 0 && destY > -tileSize)
+						{
+							drawHeight = tileSize - destY;
+							srcY -= destY;
+							destY = 0;
+						}
+						else if (destY + tileSize >= renderImg.getHeight() && destY < renderImg.getHeight())
+						{
+							drawHeight = (int)renderImg.getHeight() - destY;
+							destY = (int)renderImg.getHeight() - drawHeight;
+						}
+
 						// Never dither 'base' of tilemap or back tiles, quick draw tiles outisde of dither range
 						if (tilemap.isFloor(tileID) || getDitherIntensity(ditherX, ditherY, destX, destY) > 200)
 						{
@@ -1201,16 +1233,6 @@ public class Map
 								{
 									double ditherIntensity = getDitherIntensity(ditherX, ditherY, destX + localX, destY + localY);
 									double ditherStep = Math.ceil(Math.pow(0.02 * ditherIntensity, -1));
-									boolean inverse = false;
-									if (ditherStep < 1)
-									{
-										inverse = true;
-										ditherStep = (1/ditherStep);
-									}
-									else
-									{
-										ditherStep = (int)ditherStep;
-									}
 
 									if (ditherStep != 0 && localX % ditherStep == 0 && localY % ditherStep == 0)
 									{
@@ -1219,9 +1241,9 @@ public class Map
 								}
 							}
 						}
-					}
 
-					destY -= tileSize;
+						destY -= tileSize;
+					}
 				}
 			}
 		}
