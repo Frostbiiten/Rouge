@@ -1,5 +1,7 @@
 package application;
 
+import java.util.ArrayList;
+
 import application.World.Map;
 import application.World.Tilemap;
 import javafx.animation.AnimationTimer;
@@ -29,6 +31,9 @@ public class GameManager
 	private static Map map;
 	private static Player player;
 
+	// Game objects
+	private static ArrayList<Projectile> projectiles;
+
 	// Render at proper resolution
 	private static WritableImage renderImg;
 	private static ImageView gameView;
@@ -56,6 +61,7 @@ public class GameManager
 			deltaTime = now - currentTime;
 			currentTime = now;
 			update(deltaTime);
+			draw(deltaTime);
 		}
 	};
 
@@ -73,13 +79,14 @@ public class GameManager
 			root = new Pane();
 			scene = new Scene(root, AppProps.REAL_WIDTH, AppProps.REAL_HEIGHT);
 
-			// Start loading
-			loadTimer.start();
 
+			// Start loading on another thread
+			loadTimer.start();
 			Platform.runLater(new Runnable()
 			{
 				public void run()
 				{
+					
 					System.out.println("Loading map");
 
 					// Load tilemap
@@ -92,9 +99,17 @@ public class GameManager
 					map = new Map(80, 60, 25, tilemap);
 					Rectangle startRoom = map.getStartRoom();
 
+					// Create projectile arraylist
+					projectiles = new ArrayList<Projectile>();
+
+					System.out.println("Loading player");
+
 					// Initialize player, set position to center of spawnroom
 					player = new Player();
 					player.setPosition((startRoom.getX() + startRoom.getWidth() / 2) * tilemap.getTileSize(), (startRoom.getY() + startRoom.getHeight() / 2) * tilemap.getTileSize());
+
+					// Initialize camera, set center to center of spawn room
+					Camera.init();
 					Camera.setPos(player.getPosition().x - AppProps.BASE_WIDTH / 2, player.getPosition().y - AppProps.BASE_HEIGHT / 2);
 					
 					System.out.println("Loading complete!");
@@ -106,9 +121,6 @@ public class GameManager
 
 			});
 
-			// Default camera position
-			Camera.setPos(new Vector2(0, 0));
-			
 			// Set up game imageview
 			gameView = new ImageView();
 			gameView.setFitWidth(AppProps.REAL_WIDTH);
@@ -118,6 +130,9 @@ public class GameManager
 
 			// Initialize input
 			InputManager.Init(scene);
+			
+			// Initialize UI
+			UI.Init(root);
 
 			// Add debug label with background
 			Label lblDebugTitle = new Label();
@@ -136,7 +151,7 @@ public class GameManager
 			box.setPrefWidth(100);
 			box.getChildren().addAll(lblDebugTitle, lblDebug);
 
-			root.getChildren().add(box);
+			//root.getChildren().add(box);
 
 			// Show primary stage
 			primaryStage.setTitle("Test");
@@ -172,25 +187,41 @@ public class GameManager
 		}
 		*/
 
-		double timeModifier = (100.0/60) / (deltaTime / 10000000.0);
+		// Update every bullet
+		for (int projectile = 0; projectile < projectiles.size(); projectile++)
+		{
+			projectiles.get(projectile).update();
+		}
 
 		// Update player
 		player.update();
 
-		renderImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
-		map.draw(Camera.getPos(), renderImg);
-		player.draw(renderImg);
-		gameView.setImage(renderImg);
-
 		// Update
 		addDebugText("ms ", String.format("%.2f", deltaTime / 1000000.0));
 		addDebugText("fps ", String.format("%.2f",  1 / (deltaTime / 1000000000.0)));
-		addDebugText("mod ", String.format("%.2f",  timeModifier));
+		addDebugText("mod ", String.format("%.2f", (100.0/60) / (deltaTime / 10000000.0)));
 
 		// Set debug text
 		lblDebug.setText(debugStr.toString());
 	}
+	public static void draw(long deltaTime)
+	{
+		renderImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
+		map.draw(Camera.getPos(), renderImg);
+		player.draw(renderImg);
+		gameView.setImage(renderImg);
+	}
 	
+	// Game feature methods
+	public static void spawnProjectile(Projectile projectile)
+	{
+		projectiles.add(projectile);
+	}
+	public static boolean playerCollision(Projectile projectile)
+	{
+		return projectile.getMask().intersects(player.getMask());
+	}
+
 	// Accessor methods for various game parts
 	public static Pane getRoot()
 	{

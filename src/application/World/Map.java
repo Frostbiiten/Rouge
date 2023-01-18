@@ -3,8 +3,11 @@ package application.World;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
+import java.util.Vector;
 
+import application.AppProps;
 import application.GameManager;
+import application.InputManager;
 import application.Vector2;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.PixelWriter;
@@ -1123,7 +1126,7 @@ public class Map
 		PixelWriter writer = renderImg.getPixelWriter();
 		int tileSize = tilemap.getTileSize();
 
-		// TODO: replace with player position ...
+		// Origin of the dither
 		double ditherX = GameManager.getPlayer().getPosition().x - cameraPos.x;
 		double ditherY = GameManager.getPlayer().getPosition().y - cameraPos.y;
 
@@ -1131,9 +1134,8 @@ public class Map
 		{
 			for (int y = 0; y < height; y++)
 			{
-				// Destination x and y coordinate of tile to be drawn
-				int destX = x * tileSize - (int)cameraPos.x;
-				int destY = y * tileSize - (int)cameraPos.y;
+				// Base destination x and y coordinate of tile to be drawn (without offsets for edges)
+				int baseDestX = x * tileSize - (int)cameraPos.x;
 
 				for (int height = 0; height < tiles[x][y].length; height++)
 				{
@@ -1143,27 +1145,74 @@ public class Map
 					int srcY = tileID / (int)(tilemap.getTilesImg().getWidth() / tileSize);
 					int srcX = tileID - (srcY * (int)(tilemap.getTilesImg().getWidth() / tileSize));
 
+					// Y is reliant on height, so declare it here
+					int baseDestY = (y - height) * tileSize - (int)cameraPos.y;
+
 					srcX *= tileSize;
 					srcY *= tileSize;
 
+					boolean xDraw = baseDestX > -tileSize && baseDestX < renderImg.getWidth();
+					boolean yDraw = baseDestY > -tileSize && baseDestY < renderImg.getHeight();
+					int drawWidth = tileSize, drawHeight = tileSize;
+
+					// Actual draw destination coordinates
+					int destX = baseDestX;
+
+					// Check if coordinate is at the edge on the x axis
+					if (destX <= 0 && destX > -tileSize)
+					{
+						drawWidth = tileSize + destX;
+						srcX -= destX;
+						destX = 0;
+					}
+					else if (destX + tileSize >= renderImg.getWidth() && destX < renderImg.getWidth())
+					{
+						drawWidth = (int)renderImg.getWidth() - destX;
+						destX = (int)renderImg.getWidth() - drawWidth;
+					}
+
+					int destY = baseDestY;
+					if (destY <= 0 && destY > -tileSize)
+					{
+						drawHeight = tileSize - destY;
+						srcY -= destY;
+						destY = 0;
+					}
+					else if (destY + tileSize >= renderImg.getHeight() && destY < renderImg.getHeight())
+					{
+						drawHeight = (int)renderImg.getHeight() - destY;
+						destY = (int)renderImg.getHeight() - drawHeight;
+					}
+
 					// Make sure destination coordinate is onscreen
-					if (destX >= 0 && destX + tileSize < renderImg.getWidth() && destY >= 0 && destY + tileSize < renderImg.getHeight())
+					if (xDraw && yDraw)
 					{
 						// Never dither 'base' of tilemap or back tiles, quick draw tiles outisde of dither range
-						if (!tilemap.isBackWall(tileID) || getDitherIntensity(ditherX, ditherY, destX, destY) > 86)
+						if (tilemap.isFloor(tileID) || getDitherIntensity(ditherX, ditherY, destX, destY) > 200)
 						{
-							writer.setPixels(destX, destY, tileSize, tileSize, reader, srcX, srcY);
+							writer.setPixels(destX, destY, drawWidth, drawHeight, reader, srcX, srcY);
 						}
 						else
 						{
-							for (int localX = 0; localX < tileSize; localX++)
-							{
-								for (int localY = 0; localY < tileSize; localY++)
-								{
-									double ditherIntensity =  getDitherIntensity(ditherX, ditherY, destX + localX, destY + localY);
-									int ditherStep = (int)Math.ceil(Math.pow(0.02 * ditherIntensity, -1));
 
-									if (localX % ditherStep == 0 && localY % ditherStep == 0)
+							for (int localX = 0; localX < drawWidth; localX++)
+							{
+								for (int localY = 0; localY < drawHeight; localY++)
+								{
+									double ditherIntensity = getDitherIntensity(ditherX, ditherY, destX + localX, destY + localY);
+									double ditherStep = Math.ceil(Math.pow(0.02 * ditherIntensity, -1));
+									boolean inverse = false;
+									if (ditherStep < 1)
+									{
+										inverse = true;
+										ditherStep = (1/ditherStep);
+									}
+									else
+									{
+										ditherStep = (int)ditherStep;
+									}
+
+									if (ditherStep != 0 && localX % ditherStep == 0 && localY % ditherStep == 0)
 									{
 										writer.setArgb(destX + localX, destY + localY, reader.getArgb(srcX + localX, srcY + localY));
 									}
@@ -1185,6 +1234,6 @@ public class Map
 
 	private double getDitherIntensity(double srcX, double srcY, double destX, double destY)
 	{
-		return Math.sqrt(Math.pow(srcX - destX, 2) + Math.pow(srcY - destY, 2)) * ditherShrink;
+		return Math.sqrt(Math.pow(srcX - destX, 2) + Math.pow(srcY - destY, 2) ) * ditherShrink;
 	}
 }

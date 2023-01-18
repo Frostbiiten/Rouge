@@ -71,6 +71,12 @@ public class InputManager
 			mousePos.x = e.getX();
 			mousePos.y = e.getY();
 		});
+
+		// Trigger click in player class when click recieved
+		scene.setOnMouseClicked(e ->
+		{
+			GameManager.getPlayer().click();
+		});
 	}
 	private static void updateDirectionalInput()
 	{
@@ -101,5 +107,10 @@ public class InputManager
 	public static Vector2 getMousePos()
 	{
 		return mousePos;
+	}
+	public static Vector2 getMouseWorldPos()
+	{
+		Vector2 camPosNoShake = Camera.getPosNoShake();
+		return new Vector2((mousePos.x / AppProps.SCALE) + camPosNoShake.x, (mousePos.y / AppProps.SCALE) + camPosNoShake.y);
 	}
 }

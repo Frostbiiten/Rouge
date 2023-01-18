@@ -77,7 +77,6 @@ public class Tilemap
 	public boolean isBackWall(int id)
 	{
 		// Range of back wall tiles
-		//return (id >= 3 && id <= 5);
-		return !isFloor(id);
+		return (id >= 3 && id <= 5);
 	}
 }
