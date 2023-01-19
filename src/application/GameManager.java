@@ -2,12 +2,14 @@ package application;
 
 import java.util.ArrayList;
 
+import application.Vector2.Direction;
 import application.World.Map;
 import application.World.Tilemap;
 import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
+import javafx.scene.Cursor;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.image.*;
@@ -34,6 +36,7 @@ public class GameManager
 
 	// Game objects
 	private static ArrayList<Projectile> projectiles;
+	private static ArrayList<Explosion> explosions;
 
 	// Rendering
 	private static WritableImage bgImg;
@@ -81,11 +84,12 @@ public class GameManager
 
 			// Set stage
 			GameManager.primaryStage = primaryStage;
+			primaryStage.setResizable(false);
 
 			// Create root and scene
 			root = new Pane();
 			scene = new Scene(root, AppProps.REAL_WIDTH, AppProps.REAL_HEIGHT);
-
+			scene.setCursor(Cursor.NONE);
 
 			// Start loading on another thread
 			loadTimer.start();
@@ -102,28 +106,8 @@ public class GameManager
 					root.setStyle(String.format("-fx-background-color: rgb(%d, %d, %d)", 20, 20, 18));
 
 					// Create map and get start room
-					map = new Map(80, 60, 25, tilemap);
+					map = new Map(100, 80, 25, tilemap);
 					Rectangle startRoom = map.getStartRoom();
-
-					System.out.println("Loading projectiles");
-
-					// Create projectile arraylist
-					projectiles = new ArrayList<Projectile>();
-					
-					System.out.println("Loading input");
-
-					// Initialize input
-					InputManager.init(scene);
-
-					System.out.println("Loading player");
-
-					// Initialize player, set position to center of spawnroom
-					player = new Player();
-					player.setPosition((startRoom.getX() + startRoom.getWidth() / 2) * tilemap.getTileSize(), (startRoom.getY() + startRoom.getHeight() / 2) * tilemap.getTileSize());
-
-					// Initialize camera, set center to center of spawn room
-					Camera.init();
-					Camera.setPos(player.getPosition().x - AppProps.BASE_WIDTH / 2, player.getPosition().y - AppProps.BASE_HEIGHT / 2);
 
 					System.out.println("Loading imageviews");
 
@@ -138,19 +122,33 @@ public class GameManager
 
 					root.getChildren().addAll(bgView, fgView);
 					bgImgDepthIndex = root.getChildren().size() - 2;
+
+					System.out.println("Loading projectiles & explosions");
+
+					// Create projectile arraylist
+					projectiles = new ArrayList<Projectile>();
+					explosions = new ArrayList<Explosion>();
 					
+					System.out.println("Loading input");
+
+					// Initialize input
+					InputManager.init(scene);
+
+					System.out.println("Loading player");
+
+					// Initialize player, set position to center of spawnroom
+					player = new Player();
+					player.setPosition((startRoom.getX() + startRoom.getWidth() / 2) * tilemap.getTileSize(), (startRoom.getY() + startRoom.getHeight() / 2) * tilemap.getTileSize());
+					root.getChildren().add(bgImgDepthIndex + 1, player.getGunNode());
+
+					// Initialize camera, set center to center of spawn room
+					Camera.init();
+					Camera.setPos(player.getPosition().x - AppProps.BASE_WIDTH / 2, player.getPosition().y - AppProps.BASE_HEIGHT / 2);
 					// Initialize UI
 					UI.init(root);
 
 					// Initialize VFX
 					VFX.init();
-
-					// Create sprite and play
-					AnimatedSprite sprite = new AnimatedSprite(new Image("file:assets/objects/bullet0.png"), 15, 8, 1, true);
-					sprite.play();
-					sprite.play();
-					UI.uiPane.add(sprite.getNode(), 0, 0);
-					addAnimatedSprite(sprite);
 					
 					System.out.println("Loading complete!");
 					
@@ -236,6 +234,20 @@ public class GameManager
 			}
 		}
 
+		// Update every explosion
+		for (int explosion = 0; explosion < explosions.size(); explosion++)
+		{
+			Explosion currentExplosion = explosions.get(explosion);
+			currentExplosion.update();
+
+			// When finished playing, remove
+			if (!currentExplosion.getSprite().isPlaying())
+			{
+				root.getChildren().remove(currentExplosion.getNode());
+				explosions.remove(currentExplosion);
+			}
+		}
+
 		// Update player
 		player.update();
 
@@ -253,14 +265,20 @@ public class GameManager
 
 	public static void draw(long deltaTime)
 	{
+		// Clear render images. (when tested, this was faster than refilling them)
 		fgImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
 		bgImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
 
-
+		// Draw background
 		map.draw(Camera.getPos(), bgImg, true);
+		
+		// Draw player
 		player.draw(bgImg);
 
+		// Draw foreground
 		map.draw(Camera.getPos(), fgImg, false);
+		
+		// Set background and foreground images
 		fgView.setImage(fgImg);
 		bgView.setImage(bgImg);
 	}
@@ -270,22 +288,38 @@ public class GameManager
 	// Method to spawn projectile and add image to pane
 	public static void spawnProjectile(Projectile projectile)
 	{
+		// Add projectile to arraylist
 		projectiles.add(projectile);
 		
 		// Add projectile to index just above bg to render above background but under foreground
 		root.getChildren().add(bgImgDepthIndex + 1,  projectile.getNode());
 	}
 
-	// Method to add animated sprite to the plane
+	// Method to add animated sprite to the pane
 	public static void addAnimatedSprite(AnimatedSprite sprite)
 	{
 		// Add sprite above bg, below fg
 		root.getChildren().add(bgImgDepthIndex + 1,  sprite.getNode());
 	}
 
+	// Method to add explosion to the pane
+	public static void addExplosion(Explosion explosion)
+	{
+		// Add explosion to arraylist
+		explosions.add(explosion);
+
+		// Add sprite above bg, below fg
+		root.getChildren().add(bgImgDepthIndex + 1,  explosion.getNode());
+	}
+
 	public static boolean playerCollision(Projectile projectile)
 	{
 		return projectile.getMask().intersects(player.getMask());
+	}
+
+	public static boolean playerCollision(Explosion explosion)
+	{
+		return explosion.getMask().intersects(player.getMask());
 	}
 
 	// Accessor methods for various game parts
@@ -304,5 +338,9 @@ public class GameManager
 	public static Player getPlayer()
 	{
 		return player;
+	}
+	public static int getBgDepth()
+	{
+		return bgImgDepthIndex;
 	}
 }

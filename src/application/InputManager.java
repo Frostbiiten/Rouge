@@ -2,6 +2,7 @@ package application;
 
 import javafx.scene.Scene;
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.MouseButton;
 
 public class InputManager
 {
@@ -13,6 +14,8 @@ public class InputManager
 	
 	// Mouse position relative to top left of scene
 	private static Vector2 mousePos;
+	private static boolean leftPressed;
+	private static boolean rightPressed;
 	
 	public static void init(Scene scene)
 	{
@@ -66,18 +69,56 @@ public class InputManager
 			}
 		});
 		
+		// Update mouse position when dragged or simply moved
 		scene.setOnMouseMoved(e -> 
 		{
 			mousePos.x = e.getX();
 			mousePos.y = e.getY();
+			UI.updateCrosshairPos(mousePos.x, mousePos.y);
 		});
 
-		// Trigger click in player class when click recieved
-		scene.setOnMouseClicked(e ->
+		scene.setOnMouseDragged(e -> 
 		{
-			GameManager.getPlayer().click();
+			mousePos.x = e.getX();
+			mousePos.y = e.getY();
+			UI.updateCrosshairPos(mousePos.x, mousePos.y);
+		});
+
+		// Trigger click in player class when pressed recieved
+		scene.setOnMousePressed(e ->
+		{
+			MouseButton btn = e.getButton();
+			if (btn == MouseButton.PRIMARY)
+			{
+				GameManager.getPlayer().click(true);
+				leftPressed = true;
+			}
+			else if (btn == MouseButton.SECONDARY)
+			{
+				GameManager.getPlayer().click(false);
+				rightPressed = true;
+			}
+		});
+
+		scene.setOnMouseReleased(e ->
+		{
+			MouseButton btn = e.getButton();
+			if (btn == MouseButton.PRIMARY)
+			{
+				leftPressed = false;
+			}
+			else if (btn == MouseButton.SECONDARY)
+			{
+				rightPressed = false;
+			}
+		});
+
+		scene.setOnScroll(e ->
+		{
+			GameManager.getPlayer().scroll(e.getDeltaY());
 		});
 	}
+
 	private static void updateDirectionalInput()
 	{
 		directionalInput.x = 0;
@@ -112,5 +153,15 @@ public class InputManager
 	{
 		Vector2 camPosNoShake = Camera.getPosNoShake();
 		return new Vector2((mousePos.x / AppProps.SCALE) + camPosNoShake.x, (mousePos.y / AppProps.SCALE) + camPosNoShake.y);
+	}
+
+	// Methods to check if left or right mouse button is pressed
+	public static boolean leftMousePressed()
+	{
+		return leftPressed;
+	}
+	public static boolean rightMousePressed()
+	{
+		return rightPressed;
 	}
 }

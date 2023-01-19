@@ -25,6 +25,18 @@ public abstract class Projectile
 	// The endlife, when the projectile collides with an object/wall
 
 	// Constructor is called when first shot
+	Projectile (double xPos, double yPos, double xVel, double yVel, boolean playerOwned, double radius, AnimatedSprite sprite)
+	{
+		this.xPos = xPos;
+		this.yPos = yPos;
+		this.xVel = xVel;
+		this.yVel = yVel;
+		this.playerOwned = playerOwned;
+		this.radius = radius;
+		this.mask = new Rectangle(xPos - radius, yPos - radius, radius * 1.8, radius * 1.8);
+	}
+
+	// Constructor is called when first shot
 	Projectile (double xPos, double yPos, double xVel, double yVel, boolean playerOwned, double radius)
 	{
 		this.xPos = xPos;
@@ -55,6 +67,27 @@ public abstract class Projectile
 		mask.setY(yPos - adjustedHeight / 2);
 		mask.setWidth(adjustedWidth);
 		mask.setHeight(adjustedHeight);
+	}
+
+	// Scale velocity by a scalar
+	public void scaleVelocity(double velocityScale)
+	{
+		xVel *= velocityScale;
+		yVel *= velocityScale;
+	}
+
+	// Setters
+	public void setRadius(double radius)
+	{
+		this.radius = radius;
+	}
+	public void setXPos(double x)
+	{
+		xPos = x;
+	}
+	public void setYPos(double y)
+	{
+		yPos = y;
 	}
 	
 	// Getters

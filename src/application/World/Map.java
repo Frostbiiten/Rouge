@@ -3,7 +3,6 @@ package application.World;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
-import java.util.Vector;
 
 import application.AppProps;
 import application.GameManager;
@@ -384,35 +383,6 @@ public class Map
 						tiles[x][y] = Arrays.copyOf(tiles[x][y], tiles[x][y].length + 1);
 						tiles[x][y][tiles[x][y].length - 1] = tilemap.getWallSlice(wallMatrixPos[0], wallMatrixPos[1]);
 					}
-
-					/*
-					int[] wallMatrixPos = tilemap.getWallPosition(tiles[x][y][0]);
-
-					if (wallMatrixPos[1] == 4)
-					{
-						for (int height = 1; height < 2; height++)
-						{
-							wallMatrixPos[1]--;
-							tiles[x][y] = Arrays.copyOf(tiles[x][y], tiles[x][y].length + 1);
-
-							// Check if straight horizontal tile should be forced depending on surroundings
-							if (wallMatrixPos[1] == 2 && height == 2 && (floorTiles[x + 1][y + 1] != floorTiles[x - 1][y + 1]))
-							{
-								wallMatrixPos[0] = 1;
-							}
-
-							tiles[x][y][tiles[x][y].length - 1] = tilemap.getWallSlice(wallMatrixPos[0], wallMatrixPos[1]);
-						}
-					}
-					else
-					{
-						for (int height = 1; height < 2; height++)
-						{
-							tiles[x][y] = Arrays.copyOf(tiles[x][y], tiles[x][y].length + 1);
-							tiles[x][y][tiles[x][y].length - 1] = tilemap.getWallSlice(wallMatrixPos[0], wallMatrixPos[1]);
-						}
-					}
-					*/
 				}
 			}
 		}
@@ -861,7 +831,7 @@ public class Map
 		rooms = new ArrayList<Rectangle>();
 		roomPositions = new ArrayList<Vector2>();
 
-		int maxWidth = 8, minWidth = 6, maxHeight = 8, minHeight = 6;
+		int maxWidth = 12, minWidth = 8, maxHeight = 12, minHeight = 7;
 
 		Random rand = new Random();
 		int attempts = 0;
@@ -1150,6 +1120,8 @@ public class Map
 		{
 			initialHeight = 0;
 		}
+		
+		double mouseAngle = Math.toDegrees(Math.atan2(InputManager.getMousePos().y - AppProps.REAL_HEIGHT / 2, InputManager.getMousePos().x - AppProps.REAL_WIDTH / 2));
 
 		for (int x = 0; x < width; x++)
 		{
@@ -1207,7 +1179,8 @@ public class Map
 
 						// Check if coordinate is at the edge on the y axis, adjust properties accoridngly to draw correctly
 						int destY = baseDestY;
-						if (destY <= 0 && destY > -tileSize)
+
+						if (destY < 0 && destY > -tileSize)
 						{
 							drawHeight = tileSize - destY;
 							srcY -= destY;
@@ -1219,25 +1192,26 @@ public class Map
 							destY = (int)renderImg.getHeight() - drawHeight;
 						}
 
+						double tileAngle = Math.toDegrees(Math.atan2(destY - AppProps.BASE_HEIGHT / 2 + GameManager.getPlayer().getFacingDir().y * 45, destX - AppProps.BASE_WIDTH / 2 + GameManager.getPlayer().getFacingDir().x * 45));
+						double deltaAngle = 180 - Math.abs(Math.abs(tileAngle - mouseAngle) - 180);
+
 						// Never dither 'base' of tilemap or back tiles, quick draw tiles outisde of dither range
-						if (tilemap.isFloor(tileID) || getDitherIntensity(ditherX, ditherY, destX, destY) > 200)
+						if (tilemap.isFloor(tileID) || true)
 						{
 							writer.setPixels(destX, destY, drawWidth, drawHeight, reader, srcX, srcY);
 						}
 						else
 						{
+							double spotAngle = Math.toDegrees(Math.atan2(destY - AppProps.BASE_HEIGHT / 2 + GameManager.getPlayer().getFacingDir().y * 45, destX - AppProps.BASE_WIDTH / 2 + GameManager.getPlayer().getFacingDir().x * 45));
+							double trueDelta = 180 - Math.abs(Math.abs(spotAngle - mouseAngle) - 180);
+							double step = Math.max(40 / deltaAngle, 0);
 
-							for (int localX = 0; localX < drawWidth; localX++)
+							for (double localX = 0; localX < drawWidth; localX += Math.ceil(step))
 							{
-								for (int localY = 0; localY < drawHeight; localY++)
+								for (double localY = 0; localY < drawHeight; localY += Math.ceil(step))
 								{
-									double ditherIntensity = getDitherIntensity(ditherX, ditherY, destX + localX, destY + localY);
-									double ditherStep = Math.ceil(Math.pow(0.02 * ditherIntensity, -1));
-
-									if (ditherStep != 0 && localX % ditherStep == 0 && localY % ditherStep == 0)
-									{
-										writer.setArgb(destX + localX, destY + localY, reader.getArgb(srcX + localX, srcY + localY));
-									}
+									//System.out.println(localY);
+									writer.setArgb(destX + (int)localX, destY + (int)localY, reader.getArgb(srcX + (int)localX, srcY + (int)localY));
 								}
 							}
 						}
@@ -1252,6 +1226,11 @@ public class Map
 	public void setDithering(boolean dither)
 	{
 		ditheringEnabled = dither;
+	}
+
+	private boolean ditherTile(int x, int y)
+	{
+		return true;
 	}
 
 	private double getDitherIntensity(double srcX, double srcY, double destX, double destY)

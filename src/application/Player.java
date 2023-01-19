@@ -3,29 +3,47 @@ package application;
 import java.util.ArrayList;
 
 import application.World.Map;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.Bounds;
+import javafx.scene.image.ImageView;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.shape.Rectangle;
+import javafx.util.Duration;
 
 public class Player
 {
-	
 	// Player movement
+	private final double movementSpeed = 2;
 	private Vector2 position;
 	private Vector2 velocity;
 	private Vector2 facing;
 	private Vector2 radius;
 
-	private final double movementSpeed = 2;
+	// Rolling
+	private final double rollSpeed = 4;
+	private Timeline rollTimeline;
+	private Vector2 rollDirection;
+	private boolean rolling;
+	private int rollStage;
 	
 	// Combat
 	private int hp;
+	private Rectangle mask;
 	
 	// Guns
 	private ArrayList<Gun> guns;
 	private int currentGun;
-	private Rectangle mask;
+	private ImageView gunView;
+	private Vector2 currentGunPos;
+	private Vector2 recoilOffset;
+
+	// Dust
+	private int dustSpawnCounter;
+	private final int dustSpawnInterval = 20;
 	
 	// Constructor
 	public Player()
@@ -38,6 +56,8 @@ public class Player
 		velocity = new Vector2();
 		radius = new Vector2(8, 8);
 		facing = new Vector2();
+		currentGunPos = new Vector2();
+		recoilOffset = new Vector2();
 		
 		// Create player mask
 		mask = new Rectangle();
@@ -46,13 +66,57 @@ public class Player
 		// Initialize guns and grant player default weapon
 		guns = new ArrayList<Gun>();
 		guns.add(new DefaultGun(true));
+		guns.add(new FastGun(true));
+		guns.add(new RocketGun(true));
 		currentGun = 0;
+
+		// Create imageview for gun and add to pane
+		gunView = new ImageView(guns.get(currentGun).getImage());
+
+		// Dust fields
+		dustSpawnCounter = 0;
+
+		// Set up timeline for rolling
+		rollTimeline = new Timeline(new KeyFrame(Duration.seconds(0.1), new EventHandler<ActionEvent>()
+		{
+			@Override
+			public void handle(ActionEvent event)
+			{
+				rolling = rollStage > 3;
+				rollStage--;
+				if (rollStage == 0)
+				{
+					rollTimeline.stop();
+				}
+			}
+		}));
+		rollTimeline.setCycleCount(Timeline.INDEFINITE);
+
+		// Default roll fields
+		rollStage = 0;
+		rollDirection = new Vector2();
+		rolling = false;
 	}
 	
 	public void update()
 	{
-		// Set velocity based on input
-		velocity = Vector2.Multiply(InputManager.getDirectionalInput(), movementSpeed);
+		// Set velocity based on input/rolling
+		if (rolling)
+		{
+			velocity = Vector2.Multiply(rollDirection, rollSpeed);
+		}
+		else
+		{
+			if (InputManager.getDirectionalInput().x != 0 || InputManager.getDirectionalInput().y != 0)
+			{
+				velocity = Vector2.Multiply(Vector2.Normalize(InputManager.getDirectionalInput()), movementSpeed);
+			}
+			else
+			{
+				velocity.x = 0;
+				velocity.y = 0;
+			}
+		}
 		
 		Map map = GameManager.getMap();
 		int tileSize = map.getTilemap().getTileSize();
@@ -68,6 +132,41 @@ public class Player
 		boolean rightWall = !map.getFloorTile((int)rightTilePos.x + 1, (int)rightTilePos.y);
 		boolean topWall = !map.getFloorTile((int)topTilePos.x, (int)topTilePos.y - 1);
 		boolean bottomWall = !map.getFloorTile((int)bottomTilePos.x, (int)bottomTilePos.y + 1);
+
+		// Interpolate recoil offset back to 0
+		recoilOffset = Vector2.Lerp(recoilOffset, Vector2.ZERO, 0.5);
+
+		// Get target gun position with all variables that affect its position considered
+		Vector2 targetGunPos = new Vector2(
+			(int)(position.x - Camera.getX() - (gunView.getImage().getWidth() / 2 / AppProps.SCALE) + (radius.x * 1.5 * facing.x) + recoilOffset.x) * AppProps.SCALE,
+			(int)(position.y - Camera.getY() - (gunView.getImage().getHeight() / 2 / AppProps.SCALE) + (radius.y * 1.5 * facing.y) + recoilOffset.y) * AppProps.SCALE
+		);
+
+		// Smoothly move gun towawrds target location
+		currentGunPos = Vector2.Lerp(currentGunPos, targetGunPos, 0.5);
+
+		gunView.setX(currentGunPos.x);
+		gunView.setY(currentGunPos.y);
+
+		if (InputManager.leftMousePressed())
+		{
+			if (guns.get(currentGun).autofireEnabled())
+			{
+				click(true);
+			}
+		}
+		
+		// Rotate weapon according direction being faced
+		if (facing.x > 0)
+		{
+			gunView.setScaleX(1);
+			gunView.setRotate(Math.toDegrees(Math.atan2(facing.y, facing.x)));
+		}
+		else
+		{
+			gunView.setScaleX(-1);
+			gunView.setRotate(180 + Math.toDegrees(Math.atan2(facing.y, facing.x)));
+		}
 
 		if (leftWall)
 		{
@@ -109,6 +208,13 @@ public class Player
 		// Set dithering enabled if view is obstructed by wall
 		Vector2 ditherCheckPos = map.getTilePosition(position.x, position.y + radius.y);
 		map.setDithering(!map.getFloorTile((int)ditherCheckPos.x, (int)ditherCheckPos.y + 2) || bottomWall);
+
+		dustSpawnCounter++;
+		if(dustSpawnCounter >= dustSpawnInterval && (Math.abs(velocity.x) > 0.5 || Math.abs(velocity.y) > 0.5))
+		{
+			VFX.spawnDust((int)(position.x - velocity.x), (int)(position.y - velocity.y));
+			dustSpawnCounter = 0;
+		}
 
 		// Move player and update bounds
 		position.x += velocity.x;
@@ -162,12 +268,42 @@ public class Player
 	}
 	
 	// Run whenever the player clicks
-	public void click()
+	public void click(boolean left)
 	{
-		if (currentGun >= 0 && currentGun < guns.size())
+		if (left)
 		{
-			guns.get(currentGun).fire(position.x, position.y, facing.x, facing.y);
+			if (currentGun >= 0 && currentGun < guns.size())
+			{
+				if (guns.get(currentGun).fire(position.x, position.y, facing.x, facing.y))
+				{
+					recoilOffset.x -= facing.x * 50;
+					recoilOffset.y -= facing.y * 50;
+				}
+			}
+
+			UI.updateWeapon();
 		}
+		else
+		{
+			// Roll if not already rolling, cooldown has expired and input is being received
+			if (rollStage == 0 && (InputManager.getDirectionalInput().x != 0 || InputManager.getDirectionalInput().y != 0))
+			{
+				rollDirection = Vector2.Normalize(InputManager.getDirectionalInput());
+				roll();
+			}
+		}
+	}
+
+	// Run whenever the player scrolls
+	public void scroll(double delta)
+	{
+		guns.get(currentGun).cancelReload();
+
+		// Scroll through different weapons, use modulo to limit range
+		currentGun += delta;
+		currentGun = Math.floorMod(currentGun, guns.size());
+		UI.updateWeapon();
+		gunView.setImage(guns.get(currentGun).getImage());
 	}
 	
 	// Game mechanic methods
@@ -182,6 +318,17 @@ public class Player
 			System.out.print("Die player");
 		}
 	}
+	public void updateGun()
+	{
+		gunView.setImage(guns.get(currentGun).getImage());
+		UI.updateWeapon();
+	}
+	public void roll()
+	{
+		rollStage = 5;
+		rolling = true;
+		rollTimeline.play();
+	}
 
 	// Accessor methods
 	public Vector2 getPosition()
@@ -192,7 +339,19 @@ public class Player
 	{
 		return mask.getBoundsInParent();
 	}
-	
+    public Gun getWeapon()
+	{
+		return guns.get(currentGun);
+    }
+	public ImageView getGunNode()
+	{
+		return gunView;
+	}
+	public Vector2 getFacingDir()
+	{
+		return facing;
+	}
+
 	// Mutator methods
 	public void setPosition(double x, double y)
 	{

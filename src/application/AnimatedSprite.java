@@ -20,7 +20,7 @@ public class AnimatedSprite
 	// Timing fields
 	private Timeline animationTimeline;
 	private int currentFrame;
-	public double rate;
+	private double rate;
 	
 	// The number of sprites horizontally/vertically in the image
 	private int xFrames, yFrames;
@@ -79,6 +79,7 @@ public class AnimatedSprite
 					}
 					else
 					{
+						currentFrame--;
 						animationTimeline.stop();
 					}
 				}
@@ -108,6 +109,16 @@ public class AnimatedSprite
 		return spriteView;
 	}
 
+	public int getFrameWidth()
+	{
+		return frameWidth;
+	}
+
+	public int getFrameHeight()
+	{
+		return frameHeight;
+	}
+
 	public boolean isPlaying()
 	{
 		return animationTimeline.getStatus() == Animation.Status.RUNNING;
@@ -115,6 +126,7 @@ public class AnimatedSprite
 
 	public void draw(int xPos, int yPos, WritableImage target)
 	{
+
 		// Get the coordinates of the draw region with 1 unit = 1 sprite at first
 		int srcY = currentFrame / xFrames;
 		int srcX = currentFrame - srcY * xFrames;

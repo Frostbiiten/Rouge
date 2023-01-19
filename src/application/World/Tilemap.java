@@ -79,4 +79,9 @@ public class Tilemap
 		// Range of back wall tiles
 		return (id >= 3 && id <= 5);
 	}
+	public boolean isFrontWall(int id)
+	{
+		// Range of back wall tiles
+		return (id >= 3 && id <= 5);
+	}
 }
