@@ -32,12 +32,8 @@ public class RocketProjectile extends Projectile
 			sprite = new AnimatedSprite(new Image("file:assets/objects/bulletlarge.png"), 40, 9, 1, true);
 		}
 
-		if (playerOwned)
-		{
-			sprite.getNode().setPreserveRatio(true);
-			sprite.getNode().setRotate(Math.toDegrees(Math.atan2(yDir, xDir)));
-		}
-
+		sprite.getNode().setRotate(Math.toDegrees(Math.atan2(yDir, xDir)));
+		sprite.getNode().setPreserveRatio(true);
 		sprite.getNode().setFitHeight(50);
 
 		xPos += xVel * 2;

@@ -7,7 +7,14 @@ public class FastGun extends Gun
 	public FastGun(boolean playerOwned)
 	{
 		// Call base class constructor
-		super (30, 30, 5, 3, 0.05, playerOwned, new Image("file:assets/guns/fast.png"));
+		super (30, 30, 3, 3, 0.05, playerOwned, new Image("file:assets/guns/fast.png"));
+
+		if (!playerOwned)
+		{
+			ammo = 10;
+			magazineSize = 10;
+		}
+
 		autoFire = true;
 		name = "Rapidfire";
 	}

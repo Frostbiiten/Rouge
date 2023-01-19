@@ -21,25 +21,19 @@ public class NormalProjectile extends Projectile
 			yVel *= playerShotSpeed;
 			radius = playerShotRadius;
 
-			// Create sprite
-			sprite = new AnimatedSprite(new Image("file:assets/objects/bullet0.png"), 15, 8, 1, true);
 		}
 		else
 		{
 			xVel *= enemyShotSpeed;
 			yVel *= enemyShotSpeed;
 			radius = enemyShotRadius;
-
-			// Create sprite
-			sprite = new AnimatedSprite(new Image("file:assets/objects/bulletlarge.png"), 15, 8, 1, true);
 		}
 
-		if (playerOwned)
-		{
-			sprite.getNode().setPreserveRatio(true);
-			sprite.getNode().setFitHeight(20);
-			sprite.getNode().setRotate(Math.toDegrees(Math.atan2(yDir, xDir)));
-		}
+		// Create sprite
+		sprite = new AnimatedSprite(new Image("file:assets/objects/bullet0.png"), 15, 8, 1, true);
+		sprite.getNode().setRotate(Math.toDegrees(Math.atan2(yDir, xDir)));
+		sprite.getNode().setPreserveRatio(true);
+		sprite.getNode().setFitHeight(20);
 
 		// Play sprite animation
 		sprite.play();
@@ -53,12 +47,10 @@ public class NormalProjectile extends Projectile
 		// Set sprite
 		this.sprite = sprite;
 
-		if (playerOwned)
-		{
-			sprite.getNode().setPreserveRatio(true);
-			sprite.getNode().setFitHeight(20);
-			sprite.getNode().setRotate(Math.toDegrees(Math.atan2(yDir, xDir)));
-		}
+		// Create sprite
+		sprite.getNode().setPreserveRatio(true);
+		sprite.getNode().setFitHeight(20);
+		sprite.getNode().setRotate(Math.toDegrees(Math.atan2(yDir, xDir)));
 
 		// Set shot speed according to the shooter
 		if (playerOwned)
@@ -95,6 +87,10 @@ public class NormalProjectile extends Projectile
 	{
 		// There is not much special behaviour for the default gun (no reflect, etc)
 		VFX.spawnHitImpact((int)xPos, (int)yPos, 180 + Math.toDegrees(Math.atan2(xVel, -yVel)));
-		Camera.shakeCamera(0.5, 0.3, 1);
+
+		if (playerOwned)
+		{
+			Camera.shakeCamera(0.5, 0.3, 1);
+		}
 	}
 }

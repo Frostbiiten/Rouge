@@ -37,6 +37,7 @@ public class GameManager
 	// Game objects
 	private static ArrayList<Projectile> projectiles;
 	private static ArrayList<Explosion> explosions;
+	private static ArrayList<Enemy> enemies;
 
 	// Rendering
 	private static WritableImage bgImg;
@@ -91,74 +92,67 @@ public class GameManager
 			scene = new Scene(root, AppProps.REAL_WIDTH, AppProps.REAL_HEIGHT);
 			scene.setCursor(Cursor.NONE);
 
-			// Start loading on another thread
-			loadTimer.start();
+			// Start loading map on another thread
 			Platform.runLater(new Runnable()
 			{
 				public void run()
 				{
-					System.out.println("Loading map");
-
-					// Load tilemap
-					tilemap = new Tilemap("1", 16);
-
-					// Set background color
-					root.setStyle(String.format("-fx-background-color: rgb(%d, %d, %d)", 20, 20, 18));
-
-					// Create map and get start room
-					map = new Map(100, 80, 25, tilemap);
-					Rectangle startRoom = map.getStartRoom();
-
-					System.out.println("Loading imageviews");
-
-					// Set up game imageview
-					bgView = new ImageView();
-					bgView.setFitWidth(AppProps.REAL_WIDTH);
-					bgView.setFitHeight(AppProps.REAL_HEIGHT);
-
-					fgView = new ImageView();
-					fgView.setFitWidth(AppProps.REAL_WIDTH);
-					fgView.setFitHeight(AppProps.REAL_HEIGHT);
-
-					root.getChildren().addAll(bgView, fgView);
-					bgImgDepthIndex = root.getChildren().size() - 2;
-
-					System.out.println("Loading projectiles & explosions");
-
-					// Create projectile arraylist
-					projectiles = new ArrayList<Projectile>();
-					explosions = new ArrayList<Explosion>();
-					
-					System.out.println("Loading input");
-
-					// Initialize input
-					InputManager.init(scene);
-
-					System.out.println("Loading player");
-
-					// Initialize player, set position to center of spawnroom
-					player = new Player();
-					player.setPosition((startRoom.getX() + startRoom.getWidth() / 2) * tilemap.getTileSize(), (startRoom.getY() + startRoom.getHeight() / 2) * tilemap.getTileSize());
-					root.getChildren().add(bgImgDepthIndex + 1, player.getGunNode());
-
-					// Initialize camera, set center to center of spawn room
-					Camera.init();
-					Camera.setPos(player.getPosition().x - AppProps.BASE_WIDTH / 2, player.getPosition().y - AppProps.BASE_HEIGHT / 2);
-					// Initialize UI
-					UI.init(root);
-
-					// Initialize VFX
-					VFX.init();
-					
-					System.out.println("Loading complete!");
-					
-					// Start main game timer
-					loadTimer.stop();
-					gameTimer.start();
+					// Start loading
+					loadTimer.start();
 				}
-
 			});
 
+			// Set up game imageview
+			bgView = new ImageView();
+			bgView.setFitWidth(AppProps.REAL_WIDTH);
+			bgView.setFitHeight(AppProps.REAL_HEIGHT);
+
+			fgView = new ImageView();
+			fgView.setFitWidth(AppProps.REAL_WIDTH);
+			fgView.setFitHeight(AppProps.REAL_HEIGHT);
+
+			root.getChildren().addAll(bgView, fgView);
+			bgImgDepthIndex = root.getChildren().size() - 2;
+
+			// Create projectile, explosion, enemies arraylist
+			projectiles = new ArrayList<Projectile>();
+			explosions = new ArrayList<Explosion>();
+			enemies = new ArrayList<Enemy>();
+
+			// Initialize input
+			InputManager.init(scene);
+
+			// Load tilemap
+			tilemap = new Tilemap("1", 16);
+
+			// Set background color
+			root.setStyle(String.format("-fx-background-color: rgb(%d, %d, %d)", 20, 20, 18));
+
+			// Create map and get start room
+			map = new Map(100, 80, 25, tilemap);
+			Rectangle startRoom = map.getStartRoom();
+
+			// Initialize player, set position to center of spawnroom
+			player = new Player();
+			player.setPosition((startRoom.getX() + startRoom.getWidth() / 2) * tilemap.getTileSize(), (startRoom.getY() + startRoom.getHeight() / 2) * tilemap.getTileSize());
+			root.getChildren().add(bgImgDepthIndex + 1, player.getGunNode());
+
+			// Initialize camera, set center to center of spawn room
+			Camera.init();
+			Camera.setPos(player.getPosition().x - AppProps.BASE_WIDTH / 2, player.getPosition().y - AppProps.BASE_HEIGHT / 2);
+			// Initialize UI
+			UI.init(root);
+
+			// Initialize VFX
+			VFX.init();
+			
+			System.out.println("Loading complete!");
+			
+			for (int i = 0; i < 30; i++)
+			{
+				NormalEnemy e = new NormalEnemy("0", new Vector2(player.getPosition().x + i, player.getPosition().y));
+				addEnemy(e);
+			}
 
 			// Add debug label with background
 			Label lblDebugTitle = new Label();
@@ -176,8 +170,11 @@ public class GameManager
 			box.setPadding(new Insets(8));
 			box.setPrefWidth(100);
 			box.getChildren().addAll(lblDebugTitle, lblDebug);
-
 			//root.getChildren().add(box);
+
+			// Stop loading
+			loadTimer.stop();
+			gameTimer.start();
 
 			// Show primary stage
 			primaryStage.setTitle("Test");
@@ -215,6 +212,13 @@ public class GameManager
 		}
 		*/
 
+		// Update every enemy
+		for (int enemy = 0; enemy < enemies.size(); enemy++)
+		{
+			Enemy currentEnemy = enemies.get(enemy);
+			currentEnemy.update();
+		}
+
 		// Update every projectile
 		for (int projectile = 0; projectile < projectiles.size(); projectile++)
 		{
@@ -231,6 +235,31 @@ public class GameManager
 				currentProjectile.collide();
 				root.getChildren().remove(currentProjectile.getNode());
 				projectiles.remove(currentProjectile);
+			}
+
+			if (!currentProjectile.getPlayerOwned())
+			{
+				if (playerCollision(currentProjectile))
+				{
+					player.damage();
+					currentProjectile.collide();
+					root.getChildren().remove(currentProjectile.getNode());
+					projectiles.remove(currentProjectile);
+				}
+			}
+
+			if (currentProjectile.getPlayerOwned())
+			{
+				for (int i = 0; i < enemies.size(); i++)
+				{
+					if (enemies.get(i).getMask().intersects(currentProjectile.getMask()))
+					{
+						enemies.get(i).damage();
+						currentProjectile.collide();
+						root.getChildren().remove(currentProjectile.getNode());
+						projectiles.remove(currentProjectile);
+					}
+				}
 			}
 		}
 
@@ -295,14 +324,14 @@ public class GameManager
 		root.getChildren().add(bgImgDepthIndex + 1,  projectile.getNode());
 	}
 
-	// Method to add animated sprite to the pane
+	// Method to add animated sprite to the scene
 	public static void addAnimatedSprite(AnimatedSprite sprite)
 	{
 		// Add sprite above bg, below fg
 		root.getChildren().add(bgImgDepthIndex + 1,  sprite.getNode());
 	}
 
-	// Method to add explosion to the pane
+	// Method to add explosion to the scene
 	public static void addExplosion(Explosion explosion)
 	{
 		// Add explosion to arraylist
@@ -310,6 +339,20 @@ public class GameManager
 
 		// Add sprite above bg, below fg
 		root.getChildren().add(bgImgDepthIndex + 1,  explosion.getNode());
+	}
+
+	// Method to add enemy to the scene
+	public static void addEnemy(Enemy enemy)
+	{
+		// Add enemy to arraylist
+		enemies.add(enemy);
+	}
+
+	// Method to remove enemy from the scene
+	public static void removeEnemy(Enemy enemy)
+	{
+		// Add enemy to arraylist
+		enemies.remove(enemy);
 	}
 
 	public static boolean playerCollision(Projectile projectile)
@@ -342,5 +385,9 @@ public class GameManager
 	public static int getBgDepth()
 	{
 		return bgImgDepthIndex;
+	}
+	public static ArrayList<Enemy> getEnemies()
+	{
+		return enemies;
 	}
 }

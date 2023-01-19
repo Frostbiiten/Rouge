@@ -33,6 +33,7 @@ public class Player
 	// Combat
 	private int hp;
 	private Rectangle mask;
+	private int damageCooldownClock;
 	
 	// Guns
 	private ArrayList<Gun> guns;
@@ -100,6 +101,12 @@ public class Player
 	
 	public void update()
 	{
+		// Countdown damage invunerability timer
+		if (damageCooldownClock > 0)
+		{
+			damageCooldownClock--;
+		}
+
 		// Set velocity based on input/rolling
 		if (rolling)
 		{
@@ -122,14 +129,14 @@ public class Player
 		int tileSize = map.getTilemap().getTileSize();
 		
 		// ** needed to 'scale' coordinates to tile
-		Vector2 leftTilePos = map.getTilePosition(position.x - radius.x, position.y);
-		Vector2 rightTilePos = map.getTilePosition(position.x + radius.x, position.y);
-		Vector2 topTilePos = map.getTilePosition(position.x, position.y - radius.y);
-		Vector2 bottomTilePos = map.getTilePosition(position.x, position.y + radius.y);
+		Vector2 leftTilePos = map.getTilePosition(position.x - radius.x, position.y - radius.y);
+		Vector2 rightTilePos = map.getTilePosition(position.x + radius.x, position.y - radius.y);
+		Vector2 topTilePos = map.getTilePosition(position.x - radius.x, position.y - radius.y);
+		Vector2 bottomTilePos = map.getTilePosition(position.x - radius.x, position.y + radius.y);
 
 		// Check if inside wall on each side
-		boolean leftWall = !map.getFloorTile((int)leftTilePos.x - 1, (int)leftTilePos.y);
-		boolean rightWall = !map.getFloorTile((int)rightTilePos.x + 1, (int)rightTilePos.y);
+		boolean leftWall = !(map.getFloorTile((int)leftTilePos.x - 1, (int)leftTilePos.y) || map.getFloorTile((int)leftTilePos.x - 1, (int)leftTilePos.y + 1));
+		boolean rightWall = !(map.getFloorTile((int)leftTilePos.x + 1, (int)leftTilePos.y) || map.getFloorTile((int)leftTilePos.x + 1, (int)leftTilePos.y + 1));
 		boolean topWall = !map.getFloorTile((int)topTilePos.x, (int)topTilePos.y - 1);
 		boolean bottomWall = !map.getFloorTile((int)bottomTilePos.x, (int)bottomTilePos.y + 1);
 
@@ -222,7 +229,9 @@ public class Player
 		updateMask();
 
 		// Move camera
-		Vector2 camPos = new Vector2(position.x - AppProps.BASE_WIDTH / 2, position.y - AppProps.BASE_HEIGHT / 2);
+		Vector2 camPos = new Vector2(
+			position.x - AppProps.BASE_WIDTH / 2 + (InputManager.getMousePos().x - AppProps.REAL_WIDTH / 2) * 0.1,
+			position.y - AppProps.BASE_HEIGHT / 2 + (InputManager.getMousePos().y - AppProps.REAL_HEIGHT / 2) * 0.12);
 		Camera.setPos(Vector2.Lerp(Camera.getPos(), camPos, 0.4));
 
 		// Update direction facing based on mouse position
@@ -309,9 +318,18 @@ public class Player
 	// Game mechanic methods
 	public void damage()
 	{
+		Camera.shakeCamera(4, 0.7, 1);
+
+		// Don't take damage during cooldown or roll
+		if (damageCooldownClock > 0 || rolling)
+		{
+			return;
+		}
+
 		// Decrement health and update hp counter
 		hp--;
 		UI.updateHealth(hp);
+		damageCooldownClock = 60;
 
 		if (hp == 0)
 		{

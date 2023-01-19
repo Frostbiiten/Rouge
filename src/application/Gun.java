@@ -63,7 +63,7 @@ public abstract class Gun
 					return;
 				}
 
-				thisGun.ammo = magazineSize;
+				thisGun.ammo = thisGun.magazineSize;
 				
 				// Only remove magazine if its not unlimited/player owned
 				if (!infiniteMags && playerOwned)

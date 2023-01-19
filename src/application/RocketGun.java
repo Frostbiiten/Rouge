@@ -7,7 +7,7 @@ public class RocketGun extends Gun
 	public RocketGun(boolean playerOwned)
 	{
 		// Call base class constructor
-		super (5, 5, 5, 4, 0.9, playerOwned, new Image("file:assets/guns/rocketlauncher.png"));
+		super (5, 5, 3, 4, 1.2, playerOwned, new Image("file:assets/guns/rocketlauncher.png"));
 		name = "Explosive";
 	}
 

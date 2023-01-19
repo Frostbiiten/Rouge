@@ -1,5 +1,8 @@
 package application;
 
+import java.util.ArrayList;
+
+import javafx.geometry.Bounds;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.shape.Rectangle;
@@ -12,6 +15,7 @@ public class Explosion
 	// Main fields
 	private double xPos, yPos;
 	private Rectangle mask;
+	private boolean playerSafe;
 
 	// Rendering
 	private AnimatedSprite sprite;
@@ -47,16 +51,32 @@ public class Explosion
 
 		// Create collision mask (adjust for more leniency)
 		double adjustedRadius = radius * 1.8;
-		mask = new Rectangle(xPos - adjustedRadius, yPos - adjustedRadius, adjustedRadius, adjustedRadius);
+		mask = new Rectangle(xPos - adjustedRadius, yPos - adjustedRadius, adjustedRadius * 2, adjustedRadius * 2);
+		Bounds maskBounds = mask.getBoundsInParent();
 		
 		// Check if it should hit the player
 		if (!playerSafe)
 		{
-			GameManager.playerCollision(this);
+			if (GameManager.playerCollision(this))
+			{
+				GameManager.getPlayer().damage();
+			}
+		}
+		else
+		{
+			ArrayList<Enemy> enemies = GameManager.getEnemies();
+			for (int i = 0; i < enemies.size(); i++)
+			{
+				if (enemies.get(i).getMask().intersects(maskBounds))
+				{
+					enemies.get(i).damage();
+				}
+			}
 		}
 		
 		// Start playing explosion animation
 		sprite.play();
+
 	}
 	
 	public void update()

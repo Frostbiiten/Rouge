@@ -115,4 +115,8 @@ public abstract class Projectile
 	{
 		return sprite.getNode();
 	}
+	public boolean getPlayerOwned()
+	{
+		return playerOwned;
+	}
 }
