@@ -86,7 +86,7 @@ public class NormalProjectile extends Projectile
 	public void collide()
 	{
 		// There is not much special behaviour for the default gun (no reflect, etc)
-		VFX.spawnHitImpact((int)xPos, (int)yPos, 180 + Math.toDegrees(Math.atan2(xVel, -yVel)));
+		VFX.spawnHitImpact(xPos, yPos, 180 + Math.toDegrees(Math.atan2(xVel, -yVel)));
 
 		if (playerOwned)
 		{

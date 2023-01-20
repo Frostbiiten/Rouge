@@ -132,7 +132,7 @@ public class GameManager
 
 			// Create map, get start room and get props arraylist
 			map = new Map(100, 80, 25, tilemap);
-			Rectangle startRoom = map.getStartRoom();
+			Rectangle startRoom = map.getStartTileRoom();
 			props = map.getProps();
 
 			// Initialize player, set position to center of spawnroom
@@ -151,7 +151,7 @@ public class GameManager
 			
 			for (int i = 0; i < 1; i++)
 			{
-				NormalEnemy e = new NormalEnemy("0", new Vector2(player.getPosition().x + i, player.getPosition().y));
+				NormalEnemy e = new NormalEnemy("0", new Vector2(player.getPosition().x + i + 1, player.getPosition().y));
 				addEnemy(e);
 			}
 

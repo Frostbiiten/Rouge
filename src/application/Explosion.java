@@ -15,13 +15,12 @@ public class Explosion
 	// Main fields
 	private double xPos, yPos;
 	private Rectangle mask;
-	private boolean playerSafe;
 
 	// Rendering
 	private AnimatedSprite sprite;
 	private double spriteScale;
 	
-	public Explosion (double x, double y, int size, double radius, double damage, boolean playerSafe)
+	public Explosion (double x, double y, int size, double radius, boolean playerSafe, boolean enemySafe)
 	{
 		// Set x and y position
 		xPos = x;
@@ -31,7 +30,7 @@ public class Explosion
 		if (size == SMALL)
 		{
 			sprite = new AnimatedSprite(new Image("file:assets/explosions/small.png"), 15, 9, 1, false);
-			spriteScale = 1;
+			spriteScale = 1.3;
 		}
 		else if (size == MEDIUM)
 		{
@@ -41,8 +40,6 @@ public class Explosion
 		else if (size == LARGE)
 		{
 			sprite = new AnimatedSprite(new Image("file:assets/explosions/large.png"), 15, 20, 1, false);
-			
-			// Scale sprite to make it larger
 			spriteScale = 1.6;
 		}
 
@@ -52,6 +49,7 @@ public class Explosion
 		// Create collision mask (adjust for more leniency)
 		double adjustedRadius = radius * 1.8;
 		mask = new Rectangle(xPos - adjustedRadius, yPos - adjustedRadius, adjustedRadius * 2, adjustedRadius * 2);
+
 		Bounds maskBounds = mask.getBoundsInParent();
 		
 		// Check if it should hit the player
@@ -62,7 +60,7 @@ public class Explosion
 				GameManager.getPlayer().damage();
 			}
 		}
-		else
+		if (!enemySafe)
 		{
 			ArrayList<Enemy> enemies = GameManager.getEnemies();
 			for (int i = 0; i < enemies.size(); i++)

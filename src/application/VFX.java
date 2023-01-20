@@ -11,6 +11,10 @@ public class VFX
 	private static AnimatedSprite[] dustEffects;
 	private static Vector2[] dustEffectLocations;
 	private static int lastSpawnedDustIndex;
+
+	private static AnimatedSprite[] criticalEffects;
+	private static Vector2[] criticalEffectLocations;
+	private static int lastSpawnedCriticalIndex;
 	
 	public static void init()
 	{
@@ -40,10 +44,23 @@ public class VFX
 			GameManager.addAnimatedSprite(dustEffects[i]);
 		}
 		lastSpawnedDustIndex = 0;
+
+		criticalEffects = new AnimatedSprite[5];
+		criticalEffectLocations = new Vector2[5];
+		for (int i = 0; i < criticalEffects.length; i++)
+		{
+			AnimatedSprite sprite = new AnimatedSprite(new Image("file:assets/critical.png"), 20, 5, 1, false);
+			criticalEffects[i] = sprite;
+			sprite.getNode().setFitWidth(300);
+			sprite.getNode().setPreserveRatio(true);
+			criticalEffectLocations[i] = new Vector2();
+			GameManager.addAnimatedSprite(criticalEffects[i]);
+		}
+		lastSpawnedCriticalIndex = 0;
 	}
 	
 	// Spawn hit impact at location with rotation
-	public static void spawnHitImpact(int x, int y, double angle)
+	public static void spawnHitImpact(double x, double y, double angle)
 	{
 		AnimatedSprite currentHitImpact = hitEffects[lastSpawnedHitIndex];
 		
@@ -68,7 +85,7 @@ public class VFX
 	}
 
 	// Spawn dust at location
-	public static AnimatedSprite spawnDust(int x, int y)
+	public static void spawnDust(double x, double y)
 	{
 		AnimatedSprite currentDust = dustEffects[lastSpawnedDustIndex];
 		
@@ -99,9 +116,34 @@ public class VFX
 
 		// Bring node to front
 		currentDust.getNode().toFront();
+	}
 
-		// Return sprite if any further manipulation must be performed
-		return currentDust;
+	// Spawn critical at location
+	public static void spawnCritical(double x, double y)
+	{
+		AnimatedSprite currentCritical = criticalEffects[lastSpawnedCriticalIndex];
+		
+		// Store position for when camera moves
+		criticalEffectLocations[lastSpawnedCriticalIndex].x = x;
+		criticalEffectLocations[lastSpawnedCriticalIndex].y = y;
+
+		// Set initial position (note width is the same as height due to preserved aspect ratio)
+		currentCritical.getNode().setX((x - Camera.getX()) * AppProps.SCALE - currentCritical.getNode().getFitWidth() / 2);
+		currentCritical.getNode().setY((y - Camera.getY()) * AppProps.SCALE - currentCritical.getNode().getFitWidth() / 2);
+		currentCritical.getNode().setOpacity(1);
+		
+		// Play dust animation
+		currentCritical.play();
+		
+		// Loop between the first index and final index
+		lastSpawnedCriticalIndex++;
+		if (lastSpawnedCriticalIndex == criticalEffects.length)
+		{
+			lastSpawnedCriticalIndex = 0;
+		}
+
+		// Bring node to front
+		currentCritical.getNode().toFront();
 	}
 
 	public static void update()
@@ -118,6 +160,20 @@ public class VFX
 			{
 				// Move off screen
 				hitEffects[i].getNode().setX(-9999);
+			}
+		}
+
+		for (int i = 0; i < criticalEffects.length; i++)
+		{
+			if (criticalEffects[i].isPlaying())
+			{
+				criticalEffects[i].getNode().setX((criticalEffectLocations[i].x - Camera.getX()) * AppProps.SCALE - criticalEffects[i].getNode().getFitWidth() / 2);
+				criticalEffects[i].getNode().setY((criticalEffectLocations[i].y - Camera.getY()) * AppProps.SCALE - criticalEffects[i].getNode().getFitWidth() / 2);
+			}
+			else
+			{
+				// Move off screen
+				criticalEffects[i].getNode().setX(-9999);
 			}
 		}
 

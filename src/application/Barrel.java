@@ -7,7 +7,7 @@ public class Barrel extends Prop
 	private int hits;
 	private boolean isBarrel;
 
-	public Barrel(Vector2 position, boolean explosive)
+	public Barrel(Vector2 position)
 	{
 		super(position, new Image("file:assets/objects/barrel.png"), 1);
 
@@ -22,12 +22,6 @@ public class Barrel extends Prop
 		
 		// Default number of hits is 0
 		hits = 0;
-
-		if (explosive)
-		{
-			// TODO: implement explosive barrel
-			//barrelImg = new Image("file:assets/objects/barrel.png");
-		}
 	}
 
 	@Override
@@ -41,12 +35,13 @@ public class Barrel extends Prop
 
 		hits++;
 		
+		// Spawn some dust particles
 		for (int i = 0; i < 3; i++)
 		{
-			AnimatedSprite dust = VFX.spawnDust((int)(position.x + Math.random() * 10 - 5), (int)(position.y + Math.random() * 10));
+			VFX.spawnDust(position.x + Math.random() * 10 - 5, position.y + Math.random() * 10 + 3);
 		}
 
-		// Check how many times it has been hit and set sprite accordingly
+		// Set break image
 		if (isBarrel)
 		{
 			if (Math.random() < 0.5)

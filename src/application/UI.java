@@ -1,6 +1,10 @@
 package application;
 import java.util.ArrayList;
 
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.HPos;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -21,6 +25,8 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
+import javafx.scene.text.TextAlignment;
+import javafx.util.Duration;
 
 public class UI
 {
@@ -29,8 +35,11 @@ public class UI
 	// Health
 	private final static int heartImageSize = 20;
 	private static Image heartFull, heartEmpty;
+	private static ArrayList<ImageView> hearts;
 	private static HBox heartsBox;
 	private static int previousHp;
+	private static Timeline hpFlickerTimeline;
+	private static int hpFlickerCounter;
 
 	// Weapon
 	private static Label lblAmmo, lblMags, lblWeaponInfo;
@@ -45,6 +54,8 @@ public class UI
 	private static final double minimapScale = 8;
 	private static ImageView iconView;
 	private static Pane minimap;
+	private static Label lblStartRoom;
+
 
 	// Room border gradients
 	private static ImageView rightGradient, leftGradient, topGradient, bottomGradient;
@@ -58,6 +69,7 @@ public class UI
 
 		initTop();
 		initBottom();
+		initBorders();
 
 		// Update weapon
 		updateWeapon();
@@ -67,28 +79,45 @@ public class UI
 		crosshairView.setPreserveRatio(true);
 		crosshairView.setFitWidth(32);
 
-		// Create gradients
-		rightGradient = new ImageView(new Image("file:assets/gradient_horizontal.png"));
-		rightGradient.setFitHeight(AppProps.REAL_HEIGHT);
-		rightGradient.setFitWidth(AppProps.REAL_WIDTH);
-		rightGradient.setScaleX(-1);
-		GameManager.getRoot().getChildren().add(rightGradient);
+		hpFlickerCounter = 0;
+		hpFlickerTimeline = new Timeline(new KeyFrame(Duration.millis(35), new EventHandler<ActionEvent>()
+		{
+			@Override
+			public void handle(ActionEvent e)
+			{
+				if (previousHp < 0)
+				{
+					return;
+				}
 
-		leftGradient = new ImageView(new Image("file:assets/gradient_horizontal.png"));
-		leftGradient.setFitHeight(AppProps.REAL_HEIGHT);
-		leftGradient.setFitWidth(AppProps.REAL_WIDTH);
-		GameManager.getRoot().getChildren().add(leftGradient);
+				for (int i = 0; i < hearts.size(); i++)
+				{
+					hearts.get(i).setTranslateY(Math.random() * 10 - 5);
+				}
 
-		topGradient = new ImageView(new Image("file:assets/gradient_vertical.png"));
-		topGradient.setFitHeight(AppProps.REAL_HEIGHT);
-		topGradient.setFitWidth(AppProps.REAL_WIDTH);
-		GameManager.getRoot().getChildren().add(topGradient);
+				hpFlickerCounter++;
 
-		bottomGradient = new ImageView(new Image("file:assets/gradient_vertical.png"));
-		bottomGradient.setFitHeight(AppProps.REAL_HEIGHT);
-		bottomGradient.setFitWidth(AppProps.REAL_WIDTH);
-		bottomGradient.setScaleY(-1);
-		GameManager.getRoot().getChildren().add(bottomGradient);
+				ImageView currentHeart = hearts.get(previousHp);
+				if (hpFlickerCounter % 4 > 2)
+				{
+					currentHeart.setImage(heartFull);
+					currentHeart.setScaleY(1.1);
+				}
+				else
+				{
+					currentHeart.setImage(heartEmpty);
+					currentHeart.setScaleY(1);
+				}
+			}
+		}));
+		hpFlickerTimeline.setOnFinished(e ->
+		{
+			for (int i = 0; i < hearts.size(); i++)
+			{
+				hearts.get(i).setTranslateY(0);
+			}
+		});
+		hpFlickerTimeline.setCycleCount(40);
 
 		// Add ui gridpane to root pane
 		root.getChildren().add(uiPane);
@@ -102,6 +131,7 @@ public class UI
 
 		// Main hbox containing elements
 		HBox hpBox = new HBox();
+		hearts = new ArrayList<ImageView>();
 
 		// HP
 		// Load heart images for health
@@ -115,6 +145,7 @@ public class UI
 			heart.setFitHeight(heartImageSize);
 			heart.setPreserveRatio(true);
 			heartsBox.getChildren().add(heart);
+			hearts.add(heart);
 		}
 
 		// HP text
@@ -160,10 +191,8 @@ public class UI
 
 		// Add nodes to panes
 		topPane.add(minimap, 1, 0);
-
 		uiPane.setTop(topPane);
 	}
-
 	private static void initBottom()
 	{
 		HBox bottomBox = new HBox();
@@ -205,6 +234,31 @@ public class UI
 		bottomBox.getChildren().add(weaponVBox);
 		bottomBox.setAlignment(Pos.BOTTOM_RIGHT);
 		uiPane.setBottom(bottomBox);
+	}
+	private static void initBorders()
+	{
+		// Create gradients
+		rightGradient = new ImageView(new Image("file:assets/gradient_horizontal.png"));
+		rightGradient.setFitHeight(AppProps.REAL_HEIGHT);
+		rightGradient.setFitWidth(AppProps.REAL_WIDTH);
+		rightGradient.setScaleX(-1);
+		GameManager.getRoot().getChildren().add(rightGradient);
+
+		leftGradient = new ImageView(new Image("file:assets/gradient_horizontal.png"));
+		leftGradient.setFitHeight(AppProps.REAL_HEIGHT);
+		leftGradient.setFitWidth(AppProps.REAL_WIDTH);
+		GameManager.getRoot().getChildren().add(leftGradient);
+
+		topGradient = new ImageView(new Image("file:assets/gradient_vertical.png"));
+		topGradient.setFitHeight(AppProps.REAL_HEIGHT);
+		topGradient.setFitWidth(AppProps.REAL_WIDTH);
+		GameManager.getRoot().getChildren().add(topGradient);
+
+		bottomGradient = new ImageView(new Image("file:assets/gradient_vertical.png"));
+		bottomGradient.setFitHeight(AppProps.REAL_HEIGHT);
+		bottomGradient.setFitWidth(AppProps.REAL_WIDTH);
+		bottomGradient.setScaleY(-1);
+		GameManager.getRoot().getChildren().add(bottomGradient);
 	}
 	
 	// Method to update crosshair position on screen
@@ -274,10 +328,14 @@ public class UI
 
 	public static void updateHealth(int hp)
 	{
-		// TODO: if previousHP > hp, flash hearts (decrease in hp)
-		for (int i = 0; i < heartsBox.getChildren().size(); i++)
+		if (previousHp > hp)
 		{
-			ImageView currentHeartView = (ImageView)heartsBox.getChildren().get(i);
+			hpFlickerTimeline.play();
+		}
+
+		for (int i = 0; i < hearts.size(); i++)
+		{
+			ImageView currentHeartView = hearts.get(i);
 			if (hp > i)
 			{
 				currentHeartView.setImage(heartFull);
@@ -327,6 +385,8 @@ public class UI
 
 		// Initialize new rectangle for room to be displayed and add it to arraylist
 		Rectangle minimapRoom = new Rectangle(room.getWidth() / minimapScale * 2, room.getWidth() / minimapScale * 2);
+
+		// Set rectangle properies
 		minimapRoom.setFill(Color.WHITE);
 		minimapRoom.setOpacity(0);
 		minimapVisualRooms.add(minimapRoom);
@@ -336,6 +396,18 @@ public class UI
 
 		// Add to minimap pane at back to not overlap player icon
 		minimap.getChildren().add(0, minimapRoom);
+
+		// Add label if necessary
+		if (room == GameManager.getMap().getStartRoom())
+		{
+			lblStartRoom = new Label("Spawn");
+			lblStartRoom.setTextFill(Color.rgb(220, 20, 20));
+			lblStartRoom.setFont(Font.loadFont(AppProps.fontAPath, 10));
+			lblStartRoom.setPrefWidth(100);
+			lblStartRoom.setAlignment(Pos.CENTER);
+
+			minimap.getChildren().add(lblStartRoom);
+		}
 	}
 
 	public static void updateMinimap()
@@ -354,6 +426,12 @@ public class UI
 
 			// Lerp opacity
 			minimapRoom.setOpacity(Util.lerp(minimapRoom.getOpacity(), 1, 0.03));
+
+			if (minimapRoomReferences.get(i) == GameManager.getMap().getStartRoom())
+			{
+				lblStartRoom.setLayoutX(minimapRoom.getLayoutX() + minimapRoom.getWidth() / 2 - lblStartRoom.getPrefWidth() / 2);
+				lblStartRoom.setLayoutY(minimapRoom.getLayoutY() - 15);
+			}
 		}
 	}
 }

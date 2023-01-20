@@ -312,18 +312,18 @@ public class Player
 	// Game mechanic methods
 	public void damage()
 	{
-		Camera.shakeCamera(4, 0.7, 1);
-
 		// Don't take damage during cooldown or roll
 		if (damageCooldownClock > 0 || rolling)
 		{
 			return;
 		}
 
-		// Decrement health and update hp counter
+		// Decrement health, update hp counter, shake camera and add critical hit effect
 		hp--;
 		UI.updateHealth(hp);
 		damageCooldownClock = 60;
+		Camera.shakeCamera(4, 0.7, 1);
+		VFX.spawnCritical(position.x, position.y);
 
 		if (hp == 0)
 		{

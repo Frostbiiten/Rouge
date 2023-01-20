@@ -92,7 +92,7 @@ public abstract class Enemy
 		GameManager.getRoot().getChildren().remove(actionSprites.getNode());
 		GameManager.getRoot().getChildren().remove(gunView);
 
-		Explosion deathExplosion = new Explosion(position.x, position.y, 0, 0, 0, false);
+		Explosion deathExplosion = new Explosion(position.x, position.y, Explosion.SMALL, 0, true, true);
 		GameManager.addExplosion(deathExplosion);
 
 		GameManager.removeEnemy(this);

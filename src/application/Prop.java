@@ -2,7 +2,6 @@ package application;
 
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.HBox;
 import javafx.scene.shape.Rectangle;
 
 public abstract class Prop
@@ -26,7 +25,7 @@ public abstract class Prop
 		this.position = position;
 		
 		// Set mask
-		mask = new Rectangle(position.x, position.y, img.getWidth(), img.getHeight());
+		mask = new Rectangle(position.x - img.getWidth() * imageScale / 2, position.y - img.getHeight() * imageScale / 2, img.getWidth() * imageScale, img.getHeight() * imageScale);
 	}
 	
 	public void update()
@@ -36,8 +35,8 @@ public abstract class Prop
 	public void updateScreenPos()
 	{
 		// Calculate position on screen (position is center of image)
-		double screenX = (position.x - Camera.getX()) * AppProps.SCALE - propView.getImage().getWidth() / 2 * imageScale;
-		double screenY = (position.y - Camera.getY()) * AppProps.SCALE - propView.getImage().getHeight() / 2 * imageScale;
+		double screenX = (position.x - Camera.getX() - propView.getImage().getWidth() / 2 * imageScale) * AppProps.SCALE ;
+		double screenY = (position.y - Camera.getY() - propView.getImage().getHeight() / 2 * imageScale) * AppProps.SCALE ;
 		propView.setX(screenX);
 		propView.setY(screenY);
 	}

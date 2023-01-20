@@ -107,6 +107,8 @@ public class Camera
 		// Don't interrupt larger shakes that are already occuring
 		if (currentShakeMagnitude > magnitude)
 		{
+			currentShakeMagnitude += magnitude;
+			currentShakeFalloff = (currentShakeFalloff + fallOff)/2;
 			return;
 		}
 

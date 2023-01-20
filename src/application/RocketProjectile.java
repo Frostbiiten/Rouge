@@ -91,8 +91,8 @@ public class RocketProjectile extends Projectile
 	public void collide()
 	{
 		// There is not much special behaviour for the default gun (no reflect, etc)
-		VFX.spawnHitImpact((int)xPos, (int)yPos, 180 + Math.toDegrees(Math.atan2(xVel, -yVel)));
-		GameManager.addExplosion(new Explosion(xPos - xVel * 1.5, yPos - yVel * 1.5, Explosion.MEDIUM, 17, 10, playerOwned));
+		VFX.spawnHitImpact(xPos, yPos, 180 + Math.toDegrees(Math.atan2(xVel, -yVel)));
+		GameManager.addExplosion(new Explosion(xPos - xVel * 1.5, yPos - yVel * 1.5, Explosion.MEDIUM, 10, !playerOwned, !playerOwned));
 		Camera.shakeCamera(10, 0.8, 1);
 	}
 }

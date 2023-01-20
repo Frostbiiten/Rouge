@@ -7,6 +7,7 @@ import java.util.Random;
 import application.AppProps;
 import application.Barrel;
 import application.Camera;
+import application.Explosive;
 import application.GameManager;
 import application.InputManager;
 import application.Prop;
@@ -30,9 +31,8 @@ public class Map
 	private ArrayList<Rectangle> rooms;
 	private ArrayList<Vector2> roomPositions;
 	private ArrayList<Prop> props;
-	private Rectangle startRoom;
-	private Rectangle endRoom;
-	
+	private Rectangle startTileRoom, endTileRoom;
+	private Rectangle startRoom, endRoom;
 
 	// Drawing
 	private int[][][] tiles;
@@ -90,7 +90,7 @@ public class Map
 			Bounds currentRoom = tileRooms.get(i).getBoundsInParent();
 			Vector2 cornerPos = new Vector2();
 
-			for (int corner = 0; corner < 5; corner++)
+			for (int corner = 0; corner < 4; corner++)
 			{
 				if (corner == 0)
 				{
@@ -116,24 +116,9 @@ public class Map
 					cornerPos.x = currentRoom.getMinX();
 					cornerPos.y = currentRoom.getMaxY();
 				}
-				else
-				{
-					// Center
-					cornerPos.x = (currentRoom.getMinX() + currentRoom.getMaxX()) / 2;
-					cornerPos.y = (currentRoom.getMinY() + currentRoom.getMaxY()) / 2;
-				}
 					
-				// Have a default prop spawn chance of 75%
-				double spawnChance = 0.75;
-
-				// 'Corner' 5 represents the middle, so use a lower chance
-				if (corner == 5)
-				{
-					spawnChance = 0.3;
-				}
-				
-				// Skip if probability check did not succeed
-				if (Math.random() >= spawnChance)
+				// 75% spawn chance
+				if (Math.random() >= 0.75)
 				{
 					continue;
 				}
@@ -149,21 +134,22 @@ public class Map
 					int clusterSize = (int)(Math.random() * 3) + 1;
 
 					// Create a cluster of barrels
-					for (int localX = 1; localX <= clusterSize; localX++)
+					for (int localX = 0; localX <= clusterSize; localX++)
 					{
-						for (int localY = 1; localY <= clusterSize - 1; localY++)
+						ArrayList<Prop> column = new ArrayList<Prop>();
+						for (int localY = 0; localY <= clusterSize - localX; localY++)
 						{
-							int spawnX = localX;
-							int spawnY = localY;
+							double spawnX = localX + 0.25;
+							double spawnY = localY;
 
 							// Check if corner is on the right side, negate if this is the case
 							if (corner == 1 || corner == 2)
 							{
-								spawnX = -spawnX - 1;
+								spawnX = -spawnX - 0.75;
 							}
 							if (corner == 3 || corner == 2)
 							{
-								spawnY = -spawnY - 1;
+								spawnY = -spawnY - 1.25;
 							}
 							
 							spawnX += cornerPos.x;
@@ -172,9 +158,32 @@ public class Map
 							// Convert from tiles to actual positions
 							spawnX *= 16;
 							spawnY *= 16;
-							
-							Barrel barrel = new Barrel(new Vector2(spawnX, spawnY), ditheringEnabled);
-							GameManager.addProp(barrel);
+
+							Prop object;
+							if (Math.random() < 0.5)
+							{
+								object = new Barrel(new Vector2(spawnX, spawnY));
+							}
+							else
+							{
+								object = new Explosive(new Vector2(spawnX, spawnY));
+							}
+							column.add(object);
+						}
+
+						if (corner < 2)
+						{
+							for (int barrel = 0; barrel < column.size(); barrel++)
+							{
+								GameManager.addProp(column.get(barrel));
+							}
+						}
+						else
+						{
+							for (int barrel = column.size() - 1; barrel >= 0; barrel--)
+							{
+								GameManager.addProp(column.get(barrel));
+							}
 						}
 					}
 				}
@@ -543,7 +552,17 @@ public class Map
 		for (int i = 0; i < tileRooms.size(); i++)
 		{
 			Rectangle currentTileRoom = tileRooms.get(i);
-			rooms.add(new Rectangle(currentTileRoom.getX() * tileSize, currentTileRoom.getY() * tileSize, currentTileRoom.getWidth() * tileSize, currentTileRoom.getHeight() * tileSize));
+			Rectangle newRoom = new Rectangle(currentTileRoom.getX() * tileSize, currentTileRoom.getY() * tileSize, currentTileRoom.getWidth() * tileSize, currentTileRoom.getHeight() * tileSize);
+			rooms.add(newRoom);
+
+			if (currentTileRoom == startTileRoom)
+			{
+				startRoom = newRoom;
+			}
+			else if (currentTileRoom == endTileRoom)
+			{
+				endRoom = newRoom;
+			}
 		}
 
 		// Set original to scaled
@@ -603,10 +622,10 @@ public class Map
 		}
 
 		// Chose furthest from center for start room
-		startRoom = tileRooms.get(tileRooms.size() - 1);
+		startTileRoom = tileRooms.get(tileRooms.size() - 1);
 
 		// Get start room position
-		Vector2 startRoomPos = new Vector2(startRoom.getX() + startRoom.getWidth() / 2, startRoom.getY() + startRoom.getHeight() / 2);
+		Vector2 startRoomPos = new Vector2(startTileRoom.getX() + startTileRoom.getWidth() / 2, startTileRoom.getY() + startTileRoom.getHeight() / 2);
 
 		// Sort again but based on distance from start room to assign furthest room to end room
 		for (int end = 1; end < tileRooms.size(); end++)
@@ -629,7 +648,7 @@ public class Map
 		}
 
 		// Assign end room to furthest
-		endRoom = tileRooms.get(tileRooms.size() - 1);
+		endTileRoom = tileRooms.get(tileRooms.size() - 1);
 	}
 
 	// Method to process map to ensure it is suitable for latter steps
@@ -1202,13 +1221,21 @@ public class Map
 		return floorTiles[x][y];
 	}
 
-	// Method to get the start room in the map
+	// Methods to get the start room in the map (tile relative or pixel relative)
+	public Rectangle getStartTileRoom()
+	{
+		return startTileRoom;
+	}
 	public Rectangle getStartRoom()
 	{
 		return startRoom;
 	}
 	
-	// Method to get the end room in the map
+	// Method to get the end room in the map (tile relative or pixel relative)
+	public Rectangle getEndTileRoom()
+	{
+		return endTileRoom;
+	}
 	public Rectangle getEndRoom()
 	{
 		return endRoom;
@@ -1355,7 +1382,6 @@ public class Map
 							{
 								for (double localY = 0; localY < drawHeight; localY += Math.ceil(step))
 								{
-									//System.out.println(localY);
 									writer.setArgb(destX + (int)localX, destY + (int)localY, reader.getArgb(srcX + (int)localX, srcY + (int)localY));
 								}
 							}
