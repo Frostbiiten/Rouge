@@ -151,8 +151,8 @@ public class GameManager
 			
 			for (int i = 0; i < 1; i++)
 			{
-				NormalEnemy e = new NormalEnemy("0", new Vector2(player.getPosition().x + i + 1, player.getPosition().y));
-				addEnemy(e);
+				//NormalEnemy e = new NormalEnemy("0", new Vector2(player.getPosition().x + i + 1, player.getPosition().y));
+				//addEnemy(e);
 			}
 
 			// Add debug label with background

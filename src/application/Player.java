@@ -44,6 +44,7 @@ public class Player
 
 	// Misc
 	private Rectangle currentRoom;
+	private boolean roomCompleted;
 	
 	// Constructor
 	public Player()
@@ -103,6 +104,9 @@ public class Player
 			damageCooldownClock--;
 		}
 
+		Map map = GameManager.getMap();
+		int tileSize = map.getTilemap().getTileSize();
+
 		// Set velocity based on input/rolling
 		if (rolling)
 		{
@@ -120,25 +124,40 @@ public class Player
 				velocity.y = 0;
 			}
 		}
-		
-		Map map = GameManager.getMap();
-		int tileSize = map.getTilemap().getTileSize();
 
 		// Get current room
 		currentRoom = map.getRoom(position.x, position.y);
 		UI.addMinimapRoom(currentRoom);
 		
-		// ** needed to 'scale' coordinates to tile
-		Vector2 leftTilePos = map.getTilePosition(position.x - radius.x, position.y - radius.y);
-		Vector2 rightTilePos = map.getTilePosition(position.x + radius.x, position.y - radius.y);
-		Vector2 topTilePos = map.getTilePosition(position.x - radius.x, position.y - radius.y);
-		Vector2 bottomTilePos = map.getTilePosition(position.x - radius.x, position.y + radius.y);
+		Vector2 minTilePos = map.getTilePosition(position.x - radius.y + 1, position.y - radius.x + 1);
+		Vector2 midTilePos = map.getTilePosition(position.x, position.y);
+		Vector2 maxTilePos = map.getTilePosition(position.x + radius.y - 1, position.y + radius.x - 1);
 
 		// Check if inside wall on each side
-		boolean leftWall = !(map.getFloorTile((int)leftTilePos.x - 1, (int)leftTilePos.y) || map.getFloorTile((int)leftTilePos.x - 1, (int)leftTilePos.y + 1));
-		boolean rightWall = !(map.getFloorTile((int)leftTilePos.x + 1, (int)leftTilePos.y) || map.getFloorTile((int)leftTilePos.x + 1, (int)leftTilePos.y + 1));
-		boolean topWall = !map.getFloorTile((int)topTilePos.x, (int)topTilePos.y - 1);
-		boolean bottomWall = !map.getFloorTile((int)bottomTilePos.x, (int)bottomTilePos.y + 1);
+		boolean leftWall = !(
+			map.getFloorTile((int)midTilePos.x - 1, (int)minTilePos.y) &&
+			map.getFloorTile((int)midTilePos.x - 1, (int)midTilePos.y) &&
+			map.getFloorTile((int)midTilePos.x - 1, (int)maxTilePos.y)
+		);
+
+		boolean rightWall = !(
+			map.getFloorTile((int)midTilePos.x + 1, (int)minTilePos.y) &&
+			map.getFloorTile((int)midTilePos.x + 1, (int)midTilePos.y) &&
+			map.getFloorTile((int)midTilePos.x + 1, (int)maxTilePos.y)
+		);
+
+		boolean topWall = !(
+			map.getFloorTile((int)minTilePos.x, (int)midTilePos.y - 1) &&
+			map.getFloorTile((int)midTilePos.x, (int)midTilePos.y - 1) &&
+			map.getFloorTile((int)maxTilePos.x, (int)midTilePos.y - 1)
+		);
+
+		boolean bottomWall = !(
+			map.getFloorTile((int)minTilePos.x, (int)midTilePos.y + 1) &&
+			map.getFloorTile((int)midTilePos.x, (int)midTilePos.y + 1) &&
+			map.getFloorTile((int)maxTilePos.x, (int)midTilePos.y + 1)
+		);
+
 
 		// Interpolate recoil offset back to 0
 		recoilOffset = Vector2.Lerp(recoilOffset, Vector2.ZERO, 0.5);
@@ -177,38 +196,38 @@ public class Player
 
 		if (leftWall)
 		{
-			double wallDist = (position.x - radius.x + velocity.x) - (leftTilePos.x * tileSize);
-			if (wallDist <= 0)
+			double wallDist = (position.x + radius.x + velocity.x) - midTilePos.x * tileSize - tileSize;
+			if (wallDist < 0)
 			{
-				velocity.x = -wallDist;
+				velocity.x -= wallDist;
 			}
 		}
 
 		if (rightWall)
 		{
-			// Subtract tileSize because right wall is on the other side of the tile
-			double wallDist = tileSize - ((position.x + radius.x + velocity.x) - (rightTilePos.x * tileSize));
-			if (wallDist <= 0)
+			double wallDist = tileSize - ((position.x + radius.x + velocity.x) - midTilePos.x * tileSize);
+			if (wallDist < 0)
 			{
-				velocity.x = -wallDist;
+				velocity.x += wallDist;
 			}
 		}
 
 		if (topWall)
 		{
-			double wallDist = ((position.y - radius.y + velocity.y) - (topTilePos.y * tileSize));
-			if (wallDist <= 0)
+
+			double wallDist = (position.y + radius.y + velocity.y) - midTilePos.y * tileSize - tileSize;
+			if (wallDist < 0)
 			{
-				velocity.y = -wallDist;
+				velocity.y -= wallDist;
 			}
 		}
 
 		if (bottomWall)
 		{
-			double wallDist = tileSize - ((position.y + radius.y + velocity.y) - (bottomTilePos.y * tileSize));
-			if (wallDist <= 0)
+			double wallDist = tileSize - ((position.y + radius.y + velocity.y) - midTilePos.y * tileSize);
+			if (wallDist < 0)
 			{
-				velocity.y = -wallDist;
+				velocity.y += wallDist;
 			}
 		}
 

@@ -138,13 +138,13 @@ public class Map
 						ArrayList<Prop> column = new ArrayList<Prop>();
 						for (int localY = 0; localY <= clusterSize - localX; localY++)
 						{
-							double spawnX = localX + 0.25;
+							double spawnX = localX + 1;
 							double spawnY = localY;
 
 							// Check if corner is on the right side, negate if this is the case
 							if (corner == 1 || corner == 2)
 							{
-								spawnX = -spawnX - 0.75;
+								spawnX = -spawnX;
 							}
 							if (corner == 3 || corner == 2)
 							{
