@@ -212,10 +212,6 @@ public class Player
 			}
 		}
 
-		// Set dithering enabled if view is obstructed by wall
-		Vector2 ditherCheckPos = map.getTilePosition(position.x, position.y + radius.y);
-		map.setDithering(!map.getFloorTile((int)ditherCheckPos.x, (int)ditherCheckPos.y + 2) || bottomWall);
-
 		// Move player and update bounds
 		position.x += velocity.x;
 		position.y += velocity.y;

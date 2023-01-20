@@ -7,6 +7,7 @@ import java.util.Random;
 import application.AppProps;
 import application.Barrel;
 import application.Camera;
+import application.Enemy;
 import application.Explosive;
 import application.GameManager;
 import application.InputManager;
@@ -27,9 +28,10 @@ public class Map
 	private boolean[][] floorTiles;
 
 	// Map generation
-	private ArrayList<Rectangle> tileRooms;
-	private ArrayList<Rectangle> rooms;
+	// tile has rectangles with dimensions relative to tiles, rooms has relative to pixels
+	private ArrayList<Rectangle> tileRooms, rooms;
 	private ArrayList<Vector2> roomPositions;
+	private int[][] spawnPatterns;
 	private ArrayList<Prop> props;
 	private Rectangle startTileRoom, endTileRoom;
 	private Rectangle startRoom, endRoom;
@@ -37,8 +39,6 @@ public class Map
 	// Drawing
 	private int[][][] tiles;
 	private Tilemap tilemap;
-	private boolean ditheringEnabled;
-	private double ditherShrink = 1;
 
 	// Constructor
 	public Map(int mapWidth, int mapHeight, int roomCount, Tilemap tilemap)
@@ -76,20 +76,19 @@ public class Map
 
 		// Generate tiles to be displayed on screen
 		generateVisualTiles(floorTiles);
-
-		// Default dither disabled
-		ditheringEnabled = false;
 	}
 
 	// INTERNAL METHODS:
 	private void placeObjects()
 	{
+		spawnPatterns = new int[tileRooms.size()][];
 		for (int i = 0; i < tileRooms.size(); i++)
 		{
 			// Get current room bounds
 			Bounds currentRoom = tileRooms.get(i).getBoundsInParent();
 			Vector2 cornerPos = new Vector2();
 
+			// Place objects in each corner
 			for (int corner = 0; corner < 4; corner++)
 			{
 				if (corner == 0)
@@ -186,6 +185,33 @@ public class Map
 							}
 						}
 					}
+				}
+			}
+		
+			// Place enemies
+			if (tileRooms.get(i) == startTileRoom)
+			{
+				// No enemies in spawn room
+				spawnPatterns[i] = new int[0];
+			}
+			else
+			{
+				if (tileRooms.get(i) == endRoom)
+				{
+					// ID for boss
+					spawnPatterns[i] = new int[]{-1};
+				}
+				else
+				{
+					// Randomize the number of 'rounds' per room
+					spawnPatterns[i] = new int[(int)(1 + Math.random() * 3)];
+				}
+
+				int roundEnemyCount = 3;
+				for (int j = 0; j < spawnPatterns[i].length; j++)
+				{
+					spawnPatterns[i][j] = roundEnemyCount;
+					roundEnemyCount += (int)(Math.random() * 4);
 				}
 			}
 		}
@@ -1255,19 +1281,6 @@ public class Map
 	// Method to draw the map's tiles onto the screen. Render either the floor or elevated tiles
     public void draw(Vector2 cameraPos, WritableImage renderImg, boolean floor)
 	{
-		// No dithering on floor
-		if (!floor)
-		{
-			if (ditheringEnabled)
-			{
-				ditherShrink = Util.lerp(ditherShrink, 2, 0.15);
-			}
-			else
-			{
-				ditherShrink = Util.lerp(ditherShrink, 100, 0.001);
-			}
-		}
-
 		// Get pixel reader and writer to draw from tileset to screen
 		PixelReader reader;
 		if (floor)
@@ -1282,18 +1295,12 @@ public class Map
 		PixelWriter writer = renderImg.getPixelWriter();
 		int tileSize = tilemap.getTileSize();
 
-		// Origin of the dither
-		double ditherX = GameManager.getPlayer().getPosition().x - cameraPos.x;
-		double ditherY = GameManager.getPlayer().getPosition().y - cameraPos.y;
-
 		// Floor rendering starts at 0, above it starts at 1
 		int initialHeight = 1;
 		if (floor)
 		{
 			initialHeight = 0;
 		}
-		
-		double mouseAngle = Math.toDegrees(Math.atan2(InputManager.getMousePos().y - AppProps.REAL_HEIGHT / 2, InputManager.getMousePos().x - AppProps.REAL_WIDTH / 2));
 
 		for (int x = 0; x < width; x++)
 		{
@@ -1354,7 +1361,7 @@ public class Map
 
 						if (destY < 0 && destY > -tileSize)
 						{
-							drawHeight = tileSize - destY;
+							drawHeight = tileSize + destY;
 							srcY -= destY;
 							destY = 0;
 						}
@@ -1364,50 +1371,14 @@ public class Map
 							destY = (int)renderImg.getHeight() - drawHeight;
 						}
 
-						double tileAngle = Math.toDegrees(Math.atan2(destY - AppProps.BASE_HEIGHT / 2 + GameManager.getPlayer().getFacingDir().y * 45, destX - AppProps.BASE_WIDTH / 2 + GameManager.getPlayer().getFacingDir().x * 45));
-						double deltaAngle = 180 - Math.abs(Math.abs(tileAngle - mouseAngle) - 180);
-
-						// Never dither 'base' of tilemap or back tiles, quick draw tiles outisde of dither range
-						if (tilemap.isFloor(tileID) || true)
-						{
-							writer.setPixels(destX, destY, drawWidth, drawHeight, reader, srcX, srcY);
-						}
-						else
-						{
-							double spotAngle = Math.toDegrees(Math.atan2(destY - AppProps.BASE_HEIGHT / 2 + GameManager.getPlayer().getFacingDir().y * 45, destX - AppProps.BASE_WIDTH / 2 + GameManager.getPlayer().getFacingDir().x * 45));
-							double trueDelta = 180 - Math.abs(Math.abs(spotAngle - mouseAngle) - 180);
-							double step = Math.max(40 / deltaAngle, 0);
-
-							for (double localX = 0; localX < drawWidth; localX += Math.ceil(step))
-							{
-								for (double localY = 0; localY < drawHeight; localY += Math.ceil(step))
-								{
-									writer.setArgb(destX + (int)localX, destY + (int)localY, reader.getArgb(srcX + (int)localX, srcY + (int)localY));
-								}
-							}
-						}
-
+						// Draw tile
+						writer.setPixels(destX, destY, drawWidth, drawHeight, reader, srcX, srcY);
 						destY -= tileSize;
 					}
 				}
 			}
 		}
     }
-
-	public void setDithering(boolean dither)
-	{
-		ditheringEnabled = dither;
-	}
-
-	private boolean ditherTile(int x, int y)
-	{
-		return true;
-	}
-
-	private double getDitherIntensity(double srcX, double srcY, double destX, double destY)
-	{
-		return Math.sqrt(Math.pow(srcX - destX, 2) + Math.pow(srcY - destY, 2) ) * ditherShrink;
-	}
 	
 	public Rectangle getRoom(double x, double y)
 	{
