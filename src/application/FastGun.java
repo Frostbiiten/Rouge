@@ -27,7 +27,7 @@ public class FastGun extends Gun
 		{
 			return false;
 		}
-
+		
 		// Check for remaining ammo
 		if (ammo == 0)
 		{

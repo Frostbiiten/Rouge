@@ -2,12 +2,10 @@ package application;
 
 import java.util.ArrayList;
 
-import application.Vector2.Direction;
 import application.World.Map;
 import application.World.Tilemap;
 import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
-import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.scene.Cursor;
 import javafx.scene.Scene;
@@ -16,7 +14,6 @@ import javafx.scene.image.*;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
@@ -38,6 +35,7 @@ public class GameManager
 	private static ArrayList<Projectile> projectiles;
 	private static ArrayList<Explosion> explosions;
 	private static ArrayList<Enemy> enemies;
+	private static ArrayList<Prop> props;
 
 	// Rendering
 	private static WritableImage bgImg;
@@ -92,7 +90,7 @@ public class GameManager
 			scene = new Scene(root, AppProps.REAL_WIDTH, AppProps.REAL_HEIGHT);
 			scene.setCursor(Cursor.NONE);
 
-			// Start loading map on another thread
+			// Start loading thread
 			Platform.runLater(new Runnable()
 			{
 				public void run()
@@ -114,13 +112,17 @@ public class GameManager
 			root.getChildren().addAll(bgView, fgView);
 			bgImgDepthIndex = root.getChildren().size() - 2;
 
-			// Create projectile, explosion, enemies arraylist
+			// Create projectile, explosion, enemies, and props arraylist
 			projectiles = new ArrayList<Projectile>();
 			explosions = new ArrayList<Explosion>();
 			enemies = new ArrayList<Enemy>();
+			props = new ArrayList<Prop>();
 
 			// Initialize input
 			InputManager.init(scene);
+
+			// Init camera
+			Camera.init();
 
 			// Load tilemap
 			tilemap = new Tilemap("1", 16);
@@ -128,18 +130,17 @@ public class GameManager
 			// Set background color
 			root.setStyle(String.format("-fx-background-color: rgb(%d, %d, %d)", 20, 20, 18));
 
-			// Create map and get start room
+			// Create map, get start room and get props arraylist
 			map = new Map(100, 80, 25, tilemap);
 			Rectangle startRoom = map.getStartRoom();
+			props = map.getProps();
 
 			// Initialize player, set position to center of spawnroom
 			player = new Player();
 			player.setPosition((startRoom.getX() + startRoom.getWidth() / 2) * tilemap.getTileSize(), (startRoom.getY() + startRoom.getHeight() / 2) * tilemap.getTileSize());
 			root.getChildren().add(bgImgDepthIndex + 1, player.getGunNode());
-
-			// Initialize camera, set center to center of spawn room
-			Camera.init();
 			Camera.setPos(player.getPosition().x - AppProps.BASE_WIDTH / 2, player.getPosition().y - AppProps.BASE_HEIGHT / 2);
+
 			// Initialize UI
 			UI.init(root);
 
@@ -148,7 +149,7 @@ public class GameManager
 			
 			System.out.println("Loading complete!");
 			
-			for (int i = 0; i < 30; i++)
+			for (int i = 0; i < 1; i++)
 			{
 				NormalEnemy e = new NormalEnemy("0", new Vector2(player.getPosition().x + i, player.getPosition().y));
 				addEnemy(e);
@@ -212,6 +213,13 @@ public class GameManager
 		}
 		*/
 
+		// Update every prop
+		for (int prop = 0; prop < props.size(); prop++)
+		{
+			Prop currentProp = props.get(prop);
+			currentProp.update();
+		}
+
 		// Update every enemy
 		for (int enemy = 0; enemy < enemies.size(); enemy++)
 		{
@@ -261,6 +269,17 @@ public class GameManager
 					}
 				}
 			}
+			
+			for (int i = 0; i < props.size(); i++)
+			{
+				if (props.get(i).getMask().intersects(currentProjectile.getMask()))
+				{
+					currentProjectile.collide();
+					root.getChildren().remove(currentProjectile.getNode());
+					projectiles.remove(currentProjectile);
+					props.get(i).hit(new Vector2(currentProjectile.getXVel(), currentProjectile.getYVel()));
+				}
+			}
 		}
 
 		// Update every explosion
@@ -298,6 +317,13 @@ public class GameManager
 		fgImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
 		bgImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
 
+		// Update prop positions
+		for (int prop = 0; prop < props.size(); prop++)
+		{
+			Prop currentProp = props.get(prop);
+			currentProp.updateScreenPos();
+		}
+
 		// Draw background
 		map.draw(Camera.getPos(), bgImg, true);
 		
@@ -310,6 +336,10 @@ public class GameManager
 		// Set background and foreground images
 		fgView.setImage(fgImg);
 		bgView.setImage(bgImg);
+
+		// Update border gradients and minimap
+		UI.updateBorders();
+		UI.updateMinimap();
 	}
 	
 	// Game feature methods
@@ -336,9 +366,7 @@ public class GameManager
 	{
 		// Add explosion to arraylist
 		explosions.add(explosion);
-
-		// Add sprite above bg, below fg
-		root.getChildren().add(bgImgDepthIndex + 1,  explosion.getNode());
+		root.getChildren().add(explosion.getNode());
 	}
 
 	// Method to add enemy to the scene
@@ -351,8 +379,30 @@ public class GameManager
 	// Method to remove enemy from the scene
 	public static void removeEnemy(Enemy enemy)
 	{
-		// Add enemy to arraylist
+		// Remove enemy from arraylist
 		enemies.remove(enemy);
+	}
+
+	// Method to add prop
+	public static void addProp(Prop prop)
+	{
+		// Remove from arraylist and pane
+		props.add(prop);
+		GameManager.getRoot().getChildren().add(prop.getNode());
+	}
+	
+	// Method to remove prop
+	public static void removeProp(Prop prop)
+	{
+		// Remove from arraylist and pane
+		GameManager.getRoot().getChildren().remove(prop.getNode());
+		props.remove(prop);
+	}
+
+	// Method to get props list
+	public static ArrayList<Prop> getProps()
+	{
+		return props;
 	}
 
 	public static boolean playerCollision(Projectile projectile)

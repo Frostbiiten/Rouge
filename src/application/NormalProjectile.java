@@ -6,8 +6,8 @@ public class NormalProjectile extends Projectile
 {
 	private static final double playerShotSpeed = 5;
 	private static final double enemyShotSpeed = 3.5;
-	private static final double playerShotRadius = 4;
-	private static final double enemyShotRadius = 8;
+	private static final double playerShotRadius = 3;
+	private static final double enemyShotRadius = 3;
 
 	// Construct projectile with specified position and velocity, specifying if it was player-shot
 	public NormalProjectile (double xPosition, double yPosition, double xDir, double yDir, boolean playerOwned)

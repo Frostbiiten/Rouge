@@ -5,12 +5,18 @@ import java.util.Arrays;
 import java.util.Random;
 
 import application.AppProps;
+import application.Barrel;
+import application.Camera;
 import application.GameManager;
 import application.InputManager;
+import application.Prop;
+import application.UI;
 import application.Vector2;
+import javafx.geometry.Bounds;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
+import javafx.scene.layout.HBox;
 import javafx.scene.shape.Rectangle;
 import application.Util;
 
@@ -20,10 +26,13 @@ public class Map
 	private boolean[][] floorTiles;
 
 	// Map generation
+	private ArrayList<Rectangle> tileRooms;
 	private ArrayList<Rectangle> rooms;
 	private ArrayList<Vector2> roomPositions;
+	private ArrayList<Prop> props;
 	private Rectangle startRoom;
 	private Rectangle endRoom;
+	
 
 	// Drawing
 	private int[][][] tiles;
@@ -61,6 +70,10 @@ public class Map
 		// Upscale to deal with some imperfections
 		floorTiles = upscale(floorTiles);
 
+		// Generate objects to place in rooms
+		props = GameManager.getProps();
+		placeObjects();
+
 		// Generate tiles to be displayed on screen
 		generateVisualTiles(floorTiles);
 
@@ -69,6 +82,106 @@ public class Map
 	}
 
 	// INTERNAL METHODS:
+	private void placeObjects()
+	{
+		for (int i = 0; i < tileRooms.size(); i++)
+		{
+			// Get current room bounds
+			Bounds currentRoom = tileRooms.get(i).getBoundsInParent();
+			Vector2 cornerPos = new Vector2();
+
+			for (int corner = 0; corner < 5; corner++)
+			{
+				if (corner == 0)
+				{
+					// Top left corner
+					cornerPos.x = currentRoom.getMinX();
+					cornerPos.y = currentRoom.getMinY();
+				}
+				else if (corner == 1)
+				{
+					// Top right corner
+					cornerPos.x = currentRoom.getMaxX();
+					cornerPos.y = currentRoom.getMinY();
+				}
+				else if (corner == 2)
+				{
+					// Bottom right corner
+					cornerPos.x = currentRoom.getMaxX();
+					cornerPos.y = currentRoom.getMaxY();
+				}
+				else if (corner == 3)
+				{
+					// Bottom left corner
+					cornerPos.x = currentRoom.getMinX();
+					cornerPos.y = currentRoom.getMaxY();
+				}
+				else
+				{
+					// Center
+					cornerPos.x = (currentRoom.getMinX() + currentRoom.getMaxX()) / 2;
+					cornerPos.y = (currentRoom.getMinY() + currentRoom.getMaxY()) / 2;
+				}
+					
+				// Have a default prop spawn chance of 75%
+				double spawnChance = 0.75;
+
+				// 'Corner' 5 represents the middle, so use a lower chance
+				if (corner == 5)
+				{
+					spawnChance = 0.3;
+				}
+				
+				// Skip if probability check did not succeed
+				if (Math.random() >= spawnChance)
+				{
+					continue;
+				}
+
+				// Choose a random prop to place
+				int propID = 0;
+				propID = (int)(Math.random() * 1);
+				
+				// Different props can be spawned based on random id
+				if (propID == 0)
+				{
+					// Create barrels
+					int clusterSize = (int)(Math.random() * 3) + 1;
+
+					// Create a cluster of barrels
+					for (int localX = 1; localX <= clusterSize; localX++)
+					{
+						for (int localY = 1; localY <= clusterSize - 1; localY++)
+						{
+							int spawnX = localX;
+							int spawnY = localY;
+
+							// Check if corner is on the right side, negate if this is the case
+							if (corner == 1 || corner == 2)
+							{
+								spawnX = -spawnX - 1;
+							}
+							if (corner == 3 || corner == 2)
+							{
+								spawnY = -spawnY - 1;
+							}
+							
+							spawnX += cornerPos.x;
+							spawnY += cornerPos.y;
+							
+							// Convert from tiles to actual positions
+							spawnX *= 16;
+							spawnY *= 16;
+							
+							Barrel barrel = new Barrel(new Vector2(spawnX, spawnY), ditheringEnabled);
+							GameManager.addProp(barrel);
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// Method to generate tiles to be shown onscreen from tile boolean array
 	private void generateVisualTiles(boolean[][] floorTiles)
 	{
@@ -411,9 +524,9 @@ public class Map
 		}
 
 		// Upscale rooms
-		for (int i = 0; i < rooms.size(); i++)
+		for (int i = 0; i < tileRooms.size(); i++)
 		{
-			Rectangle current = rooms.get(i);
+			Rectangle current = tileRooms.get(i);
 
 			// Scaling is done about the origin at (0, 0), where all points are positive, so no fancy math is needed,
 			// they can just be scaled directly as shown
@@ -422,6 +535,15 @@ public class Map
 			current.setHeight(current.getHeight() * 2);
 			current.setX(current.getX() * 2);
 			current.setY(current.getY() * 2);
+		}
+
+		// Scale rooms from tile relative to pixel relative
+		rooms = new ArrayList<Rectangle>();
+		int tileSize = tilemap.getTileSize();
+		for (int i = 0; i < tileRooms.size(); i++)
+		{
+			Rectangle currentTileRoom = tileRooms.get(i);
+			rooms.add(new Rectangle(currentTileRoom.getX() * tileSize, currentTileRoom.getY() * tileSize, currentTileRoom.getWidth() * tileSize, currentTileRoom.getHeight() * tileSize));
 		}
 
 		// Set original to scaled
@@ -461,9 +583,9 @@ public class Map
 		Vector2 mapCenter = new Vector2(width / 2, height / 2);
 
 		// Sort rooms by distance from center using insertion sort
-		for (int end = 1; end < rooms.size(); end++)
+		for (int end = 1; end < tileRooms.size(); end++)
 		{
-			Rectangle rect = rooms.get(end);
+			Rectangle rect = tileRooms.get(end);
 			int index = end;
 
 			// Get distance of current rect from center (use square distance because it is faster to compute)
@@ -471,25 +593,25 @@ public class Map
 
 			// Sort using distance from center
 			while (index > 0 && sqrDistance < Vector2.SqrDistance(mapCenter,
-				new Vector2(rooms.get(index - 1).getX() + rooms.get(index - 1).getWidth() / 2, rooms.get(index - 1).getY() + rooms.get(index - 1).getWidth() / 2)))
+				new Vector2(tileRooms.get(index - 1).getX() + tileRooms.get(index - 1).getWidth() / 2, tileRooms.get(index - 1).getY() + tileRooms.get(index - 1).getWidth() / 2)))
 			{
-				rooms.set(index, rooms.get(index - 1));
+				tileRooms.set(index, tileRooms.get(index - 1));
 				index--;
 			}
 
-			rooms.set(index, rect);
+			tileRooms.set(index, rect);
 		}
 
 		// Chose furthest from center for start room
-		startRoom = rooms.get(rooms.size() - 1);
+		startRoom = tileRooms.get(tileRooms.size() - 1);
 
 		// Get start room position
 		Vector2 startRoomPos = new Vector2(startRoom.getX() + startRoom.getWidth() / 2, startRoom.getY() + startRoom.getHeight() / 2);
 
 		// Sort again but based on distance from start room to assign furthest room to end room
-		for (int end = 1; end < rooms.size(); end++)
+		for (int end = 1; end < tileRooms.size(); end++)
 		{
-			Rectangle rect = rooms.get(end);
+			Rectangle rect = tileRooms.get(end);
 			int index = end;
 
 			// Get distance of current rect from center (use square distance because it is faster to compute)
@@ -497,17 +619,17 @@ public class Map
 
 			// Sort using distance from center
 			while (index > 0 && sqrDistance < Vector2.SqrDistance(startRoomPos,
-				new Vector2(rooms.get(index - 1).getX() + rooms.get(index - 1).getWidth() / 2, rooms.get(index - 1).getY() + rooms.get(index - 1).getWidth() / 2)))
+				new Vector2(tileRooms.get(index - 1).getX() + tileRooms.get(index - 1).getWidth() / 2, tileRooms.get(index - 1).getY() + tileRooms.get(index - 1).getWidth() / 2)))
 			{
-				rooms.set(index, rooms.get(index - 1));
+				tileRooms.set(index, tileRooms.get(index - 1));
 				index--;
 			}
 
-			rooms.set(index, rect);
+			tileRooms.set(index, rect);
 		}
 
 		// Assign end room to furthest
-		endRoom = rooms.get(rooms.size() - 1);
+		endRoom = tileRooms.get(tileRooms.size() - 1);
 	}
 
 	// Method to process map to ensure it is suitable for latter steps
@@ -529,14 +651,14 @@ public class Map
 		}
 
 		// Prune rooms: Remove the rectangle objects that have previously been pruned
-		for (int room = 0; room < rooms.size(); room++)
+		for (int room = 0; room < tileRooms.size(); room++)
 		{
-			Rectangle current = rooms.get(room);
+			Rectangle current = tileRooms.get(room);
 			
 			// Check if center of rectangle is inside a room
 			if (!floorTiles[(int)(current.getX() + current.getWidth() / 2)][(int)(current.getY() + current.getHeight() / 2)])
 			{
-				rooms.remove(current);
+				tileRooms.remove(current);
 				room--;
 			}
 		}
@@ -653,8 +775,22 @@ public class Map
 		{
 			Edge current = hallways.get(i);
 
+			Rectangle beginRoom = null, endRoom = null;
 			Vector2 beginVec = current.getA();
 			Vector2 endVec = current.getB();
+
+			for (int r = 0; r < tileRooms.size(); r++)
+			{
+				if (tileRooms.get(r).contains(beginVec.x, beginVec.y))
+				{
+					beginRoom = tileRooms.get(r);
+				}
+
+				if (tileRooms.get(r).contains(endVec.x, endVec.y))
+				{
+					endRoom = tileRooms.get(r);
+				}
+			}
 
 			// Array to store the state of grid spot
 			// -1 : unvisited
@@ -805,9 +941,9 @@ public class Map
 		}
 		
 		// Slightly shrink rooms for padding/spacing purposes
-		for (int i = 0; i < rooms.size(); i++)
+		for (int i = 0; i < tileRooms.size(); i++)
 		{
-			Rectangle currentRoom = rooms.get(i);
+			Rectangle currentRoom = tileRooms.get(i);
 			currentRoom.setWidth(currentRoom.getWidth() - 2);
 			currentRoom.setX(currentRoom.getX() + 1);
 			currentRoom.setHeight(currentRoom.getHeight() - 2);
@@ -828,7 +964,7 @@ public class Map
 	// Generate room rectangles and their corresponding centers, stored in roompositions array 
 	private void generateRooms(int roomCount)
 	{
-		rooms = new ArrayList<Rectangle>();
+		tileRooms = new ArrayList<Rectangle>();
 		roomPositions = new ArrayList<Vector2>();
 
 		int maxWidth = 12, minWidth = 8, maxHeight = 12, minHeight = 7;
@@ -836,14 +972,14 @@ public class Map
 		Random rand = new Random();
 		int attempts = 0;
 
-		while (rooms.size() < roomCount)
+		while (tileRooms.size() < roomCount)
 		{
 			// Restart room generation if there have been too many failed attempts
 			attempts++;
 			if (attempts > 100)
 			{
 				attempts = 0;
-				rooms.clear();
+				tileRooms.clear();
 			}
 
 			// Generate rectangle with random position and dimensions
@@ -857,10 +993,10 @@ public class Map
 
 			// Check if rectangle overlaps pre-existing rooms
 			boolean valid = true;
-			for (int i = 0; i < rooms.size(); i++)
+			for (int i = 0; i < tileRooms.size(); i++)
 			{
 				// Make sure rectangle doesn't overlap another/go out of range
-				if (rooms.get(i).intersects(rect.getBoundsInParent()))
+				if (tileRooms.get(i).intersects(rect.getBoundsInParent()))
 				{
 					valid = false;
 					break;
@@ -874,7 +1010,7 @@ public class Map
 				attempts = 0;
 
 				// Add to list of rooms along with position
-				rooms.add(rect);
+				tileRooms.add(rect);
 				roomPositions.add(new Vector2(rect.getX() + rect.getWidth() / 2, rect.getY() + rect.getHeight() / 2));
 			}
 		}
@@ -1106,7 +1242,16 @@ public class Map
 		}
 
 		// Get pixel reader and writer to draw from tileset to screen
-		PixelReader reader = tilemap.getTilesImg().getPixelReader();
+		PixelReader reader;
+		if (floor)
+		{
+			reader = tilemap.getTilesImg().getPixelReader();
+		}
+		else
+		{
+			reader = tilemap.getFgTilesImg().getPixelReader();
+		}
+
 		PixelWriter writer = renderImg.getPixelWriter();
 		int tileSize = tilemap.getTileSize();
 
@@ -1236,5 +1381,24 @@ public class Map
 	private double getDitherIntensity(double srcX, double srcY, double destX, double destY)
 	{
 		return Math.sqrt(Math.pow(srcX - destX, 2) + Math.pow(srcY - destY, 2) ) * ditherShrink;
+	}
+	
+	public Rectangle getRoom(double x, double y)
+	{
+		for (int i = 0; i < rooms.size(); i++)
+		{
+			if (rooms.get(i).contains(x, y))
+			{
+				return rooms.get(i);
+			}
+		}
+
+		return null;
+	}
+
+	// Method to get arraylist of game props
+	public ArrayList<Prop> getProps()
+	{
+		return props;
 	}
 }

@@ -28,8 +28,8 @@ public class VFX
 		}
 		lastSpawnedHitIndex = 0;
 
-		dustEffects = new AnimatedSprite[20];
-		dustEffectLocations = new Vector2[20];
+		dustEffects = new AnimatedSprite[35];
+		dustEffectLocations = new Vector2[35];
 		for (int i = 0; i < dustEffects.length; i++)
 		{
 			AnimatedSprite sprite = new AnimatedSprite(new Image("file:assets/dust.png"), 15, 6, 1, false);
@@ -68,7 +68,7 @@ public class VFX
 	}
 
 	// Spawn dust at location
-	public static void spawnDust(int x, int y)
+	public static AnimatedSprite spawnDust(int x, int y)
 	{
 		AnimatedSprite currentDust = dustEffects[lastSpawnedDustIndex];
 		
@@ -76,9 +76,12 @@ public class VFX
 		dustEffectLocations[lastSpawnedDustIndex].x = x;
 		dustEffectLocations[lastSpawnedDustIndex].y = y;
 
-		// Set initial position
-		currentDust.getNode().setX((x - Camera.getX()) * AppProps.SCALE);
-		currentDust.getNode().setY((y - Camera.getY()) * AppProps.SCALE);
+		// Set random scale
+		currentDust.getNode().setFitWidth(20 + Math.random() * 20);
+
+		// Set initial position (note width is the same as height due to preserved aspect ratio)
+		currentDust.getNode().setX((x - Camera.getX()) * AppProps.SCALE - currentDust.getNode().getFitWidth() / 2);
+		currentDust.getNode().setY((y - Camera.getY()) * AppProps.SCALE - currentDust.getNode().getFitWidth() / 2);
 		currentDust.getNode().setOpacity(1);
 		
 		// Set random rotation
@@ -93,6 +96,12 @@ public class VFX
 		{
 			lastSpawnedDustIndex = 0;
 		}
+
+		// Bring node to front
+		currentDust.getNode().toFront();
+
+		// Return sprite if any further manipulation must be performed
+		return currentDust;
 	}
 
 	public static void update()
@@ -117,8 +126,8 @@ public class VFX
 			AnimatedSprite currentDust = dustEffects[i];
 
 			double currentOpacity = currentDust.getNode().getOpacity();
-			dustEffectLocations[i].y -= 1 * currentOpacity;
-			currentDust.getNode().setOpacity(currentOpacity * 0.9);
+			dustEffectLocations[i].y -= 0.2 * currentOpacity;
+			currentDust.getNode().setOpacity(currentOpacity * 0.98);
 
 			if (currentDust.getNode().getOpacity() == 0)
 			{
@@ -127,11 +136,11 @@ public class VFX
 
 			if (currentDust.getNode().getRotate() > 0)
 			{
-				currentDust.getNode().setRotate(currentDust.getNode().getRotate() + currentOpacity);
+				currentDust.getNode().setRotate(currentDust.getNode().getRotate() + currentOpacity * 0.2);
 			}
 			else
 			{
-				currentDust.getNode().setRotate(currentDust.getNode().getRotate() - currentOpacity);
+				currentDust.getNode().setRotate(currentDust.getNode().getRotate() - currentOpacity * 0.2);
 			}
 
 			dustEffects[i].getNode().setX((dustEffectLocations[i].x - Camera.getX()) * AppProps.SCALE);

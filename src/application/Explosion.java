@@ -30,17 +30,17 @@ public class Explosion
 		// Set sprites according to specified size id
 		if (size == SMALL)
 		{
-			sprite = new AnimatedSprite(new Image("file:assets/explosions/small.png"), 12, 9, 1, false);
+			sprite = new AnimatedSprite(new Image("file:assets/explosions/small.png"), 15, 9, 1, false);
 			spriteScale = 1;
 		}
 		else if (size == MEDIUM)
 		{
-			sprite = new AnimatedSprite(new Image("file:assets/explosions/medium.png"), 12, 7, 1, false);
+			sprite = new AnimatedSprite(new Image("file:assets/explosions/medium.png"), 15, 7, 1, false);
 			spriteScale = 2;
 		}
 		else if (size == LARGE)
 		{
-			sprite = new AnimatedSprite(new Image("file:assets/explosions/large.png"), 12, 20, 1, false);
+			sprite = new AnimatedSprite(new Image("file:assets/explosions/large.png"), 15, 20, 1, false);
 			
 			// Scale sprite to make it larger
 			spriteScale = 1.6;
@@ -72,11 +72,20 @@ public class Explosion
 					enemies.get(i).damage();
 				}
 			}
+
+			ArrayList<Prop> props = GameManager.getProps();
+			for (int i = 0; i < props.size(); i++)
+			{
+				Prop currentProp = props.get(i);
+				if (currentProp.getMask().intersects(maskBounds))
+				{
+					props.get(i).hit(new Vector2(currentProp.getX() - x, currentProp.getY() - y));
+				}
+			}
 		}
 		
 		// Start playing explosion animation
 		sprite.play();
-
 	}
 	
 	public void update()

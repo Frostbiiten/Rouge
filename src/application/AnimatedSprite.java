@@ -20,7 +20,7 @@ public class AnimatedSprite
 	// Timing fields
 	private Timeline animationTimeline;
 	private int currentFrame;
-	private double rate;
+	private double interval;
 	
 	// The number of sprites horizontally/vertically in the image
 	private int xFrames, yFrames;
@@ -61,8 +61,10 @@ public class AnimatedSprite
 		// Start from first frame
 		currentFrame = 0;
 
+		interval = 1 / fps;
+
 		// Create timeline to cycle through frames
-		animationTimeline = new Timeline(new KeyFrame(Duration.seconds(1 / fps), new EventHandler<ActionEvent>()
+		animationTimeline = new Timeline(new KeyFrame(Duration.seconds(interval), new EventHandler<ActionEvent>()
 		{
 			@Override
 			public void handle(ActionEvent event)
@@ -94,7 +96,13 @@ public class AnimatedSprite
 	public void play()
 	{
 		currentFrame = 0;
-		animationTimeline.play();
+		redraw();
+		animationTimeline.playFrom(Duration.millis(interval - 0.1));
+	}
+
+	public void setFrame(int frame)
+	{
+		currentFrame = frame;
 	}
 
 	public void redraw()

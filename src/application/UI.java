@@ -1,14 +1,25 @@
 package application;
+import java.util.ArrayList;
+
+import javafx.geometry.HPos;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.Border;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.BorderStroke;
+import javafx.scene.layout.BorderStrokeStyle;
+import javafx.scene.layout.BorderWidths;
+import javafx.scene.layout.CornerRadii;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 
 public class UI
@@ -25,7 +36,18 @@ public class UI
 	private static Label lblAmmo, lblMags, lblWeaponInfo;
 	private static ImageView weaponImgView;
 	
+	// Crosshair
 	private static ImageView crosshairView;
+
+	// Minimap:
+	private static ArrayList<Rectangle> minimapRoomReferences;
+	private static ArrayList<Rectangle> minimapVisualRooms;
+	private static final double minimapScale = 8;
+	private static ImageView iconView;
+	private static Pane minimap;
+
+	// Room border gradients
+	private static ImageView rightGradient, leftGradient, topGradient, bottomGradient;
 
 	public static void init(Pane root)
 	{
@@ -45,14 +67,41 @@ public class UI
 		crosshairView.setPreserveRatio(true);
 		crosshairView.setFitWidth(32);
 
+		// Create gradients
+		rightGradient = new ImageView(new Image("file:assets/gradient_horizontal.png"));
+		rightGradient.setFitHeight(AppProps.REAL_HEIGHT);
+		rightGradient.setFitWidth(AppProps.REAL_WIDTH);
+		rightGradient.setScaleX(-1);
+		GameManager.getRoot().getChildren().add(rightGradient);
+
+		leftGradient = new ImageView(new Image("file:assets/gradient_horizontal.png"));
+		leftGradient.setFitHeight(AppProps.REAL_HEIGHT);
+		leftGradient.setFitWidth(AppProps.REAL_WIDTH);
+		GameManager.getRoot().getChildren().add(leftGradient);
+
+		topGradient = new ImageView(new Image("file:assets/gradient_vertical.png"));
+		topGradient.setFitHeight(AppProps.REAL_HEIGHT);
+		topGradient.setFitWidth(AppProps.REAL_WIDTH);
+		GameManager.getRoot().getChildren().add(topGradient);
+
+		bottomGradient = new ImageView(new Image("file:assets/gradient_vertical.png"));
+		bottomGradient.setFitHeight(AppProps.REAL_HEIGHT);
+		bottomGradient.setFitWidth(AppProps.REAL_WIDTH);
+		bottomGradient.setScaleY(-1);
+		GameManager.getRoot().getChildren().add(bottomGradient);
+
 		// Add ui gridpane to root pane
 		root.getChildren().add(uiPane);
 	}
 	
 	private static void initTop()
 	{
+		// Pane width
+		GridPane topPane = new GridPane();
+		topPane.setMinWidth(uiPane.getWidth());
+
 		// Main hbox containing elements
-		HBox topBox = new HBox();
+		HBox hpBox = new HBox();
 
 		// HP
 		// Load heart images for health
@@ -77,8 +126,42 @@ public class UI
 		previousHp = 4;
 		updateHealth(4);
 
-		topBox.getChildren().addAll(lblHp, heartsBox);
-		uiPane.setTop(topBox);
+		hpBox.getChildren().addAll(lblHp, heartsBox);
+		topPane.add(hpBox, 0, 0);
+
+		// Create minimap with clipping
+		// Pane Clipping https://news.kynosarges.org/2016/11/03/javafx-pane-clipping/
+		minimap = new Pane();
+		minimap.setMaxWidth(200);
+		minimap.setMinHeight(200);
+		minimap.setMaxHeight(200);
+		minimap.setClip(new Rectangle(200, 200));
+		minimap.setPadding(new Insets(5, 3, 5, 5));
+		GridPane.setHgrow(minimap, Priority.ALWAYS);
+		GridPane.setHalignment(minimap, HPos.RIGHT);
+
+		// Add player icon to minimap
+		iconView = new ImageView(new Image("file:assets/playerIcon.png"));
+		iconView.setFitWidth(20);
+		iconView.setPreserveRatio(true);
+		iconView.setX(90);
+		iconView.setY(90);
+		minimap.getChildren().add(iconView);
+
+		HBox.setHgrow(minimap, Priority.ALWAYS);
+
+		// Create arraylist of actual rooms for reference and rectangle rooms that are displayed
+		minimapRoomReferences = new ArrayList<Rectangle>();
+		minimapVisualRooms = new ArrayList<Rectangle>();
+
+		// Set colors
+		minimap.setStyle("-fx-background-color: rgb(10, 10, 10, 0.9)");
+		minimap.setBorder(new Border(new BorderStroke(Color.WHITE, BorderStrokeStyle.SOLID, new CornerRadii(3), new BorderWidths(1))));
+
+		// Add nodes to panes
+		topPane.add(minimap, 1, 0);
+
+		uiPane.setTop(topPane);
 	}
 
 	private static void initBottom()
@@ -206,5 +289,71 @@ public class UI
 		}
 		
 		previousHp = hp;
+	}
+
+	public static void updateBorders()
+	{
+		Rectangle room = GameManager.getPlayer().getRoom();
+
+		if (room != null)
+		{
+			topGradient.setY((room.getY() - Camera.getY()) * AppProps.SCALE - AppProps.REAL_HEIGHT);
+			bottomGradient.setY((room.getY() + room.getHeight() - Camera.getY()) * AppProps.SCALE - 50);
+			leftGradient.setX((room.getX() - Camera.getX()) * AppProps.SCALE - AppProps.REAL_WIDTH);
+			rightGradient.setX((room.getX() + room.getWidth() - Camera.getX()) * AppProps.SCALE);
+
+			// Interpolate opacity from 0 to 1 to fade in
+			topGradient.setOpacity(Util.lerp(topGradient.getOpacity(), 1, 0.1));
+			bottomGradient.setOpacity(Util.lerp(topGradient.getOpacity(), 1, 0.1));
+			leftGradient.setOpacity(Util.lerp(topGradient.getOpacity(), 1, 0.1));
+			rightGradient.setOpacity(Util.lerp(topGradient.getOpacity(), 1, 0.1));
+		}
+		else
+		{
+			// Interpolate opacity from 1 to 0 to fade away
+			topGradient.setOpacity(Util.lerp(topGradient.getOpacity(), 0, 0.1));
+			bottomGradient.setOpacity(Util.lerp(topGradient.getOpacity(), 0, 0.1));
+			leftGradient.setOpacity(Util.lerp(topGradient.getOpacity(), 0, 0.1));
+			rightGradient.setOpacity(Util.lerp(topGradient.getOpacity(), 0, 0.1));
+		}
+	}
+
+	public static void addMinimapRoom(Rectangle room)
+	{
+		if (room == null || minimapRoomReferences.contains(room))
+		{
+			return;
+		}
+
+		// Initialize new rectangle for room to be displayed and add it to arraylist
+		Rectangle minimapRoom = new Rectangle(room.getWidth() / minimapScale * 2, room.getWidth() / minimapScale * 2);
+		minimapRoom.setFill(Color.WHITE);
+		minimapRoom.setOpacity(0);
+		minimapVisualRooms.add(minimapRoom);
+
+		// Keep track of the room that the minimap rectangle is referencing
+		minimapRoomReferences.add(room);
+
+		// Add to minimap pane at back to not overlap player icon
+		minimap.getChildren().add(0, minimapRoom);
+	}
+
+	public static void updateMinimap()
+	{
+		for (int i = 0; i < minimapRoomReferences.size(); i++)
+		{
+			// Get minimap room and real room
+			Rectangle realRoom = minimapRoomReferences.get(i);
+			Rectangle minimapRoom = minimapVisualRooms.get(i);
+
+			minimapRoom.setWidth(Util.lerp(minimapRoom.getWidth(), realRoom.getWidth() / minimapScale, 0.1));
+			minimapRoom.setHeight(Util.lerp(minimapRoom.getHeight(), realRoom.getHeight() / minimapScale, 0.1));
+
+			minimapRoom.setLayoutX((realRoom.getX() - GameManager.getPlayer().getPosition().x) / minimapScale + 100);
+			minimapRoom.setLayoutY((realRoom.getY() - GameManager.getPlayer().getPosition().y) / minimapScale + 100);
+
+			// Lerp opacity
+			minimapRoom.setOpacity(Util.lerp(minimapRoom.getOpacity(), 1, 0.03));
+		}
 	}
 }

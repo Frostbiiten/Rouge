@@ -35,7 +35,7 @@ public class NormalEnemy extends Enemy
 			gun = new RocketGun(false);
 		}
 
-		// Add 2 above to be on top of player's actual sprites
+		// Add 2 above to be on top of the enemy's actual sprites
 		gunView = new ImageView(gun.getImage());
 		GameManager.getRoot().getChildren().add(GameManager.getBgDepth() + 3, gunView);
 		

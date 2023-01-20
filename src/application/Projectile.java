@@ -3,6 +3,7 @@ package application;
 import javafx.geometry.Bounds;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
 import javafx.scene.shape.Rectangle;
 
 public abstract class Projectile
@@ -65,8 +66,8 @@ public abstract class Projectile
 		double adjustedHeight = radius * 1.8;
 		mask.setX(xPos - adjustedWidth / 2);
 		mask.setY(yPos - adjustedHeight / 2);
-		mask.setWidth(adjustedWidth);
-		mask.setHeight(adjustedHeight);
+		mask.setWidth(adjustedWidth * 2);
+		mask.setHeight(adjustedHeight * 2);
 	}
 
 	// Scale velocity by a scalar

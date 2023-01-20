@@ -1,12 +1,10 @@
 package application.World;
-
-import java.util.Hashtable;
-
 import javafx.scene.image.Image;
+
 public class Tilemap
 {
 	private int tileSize;
-	private Image imgTiles;
+	private Image imgTiles, imgTilesFg;
 
 	public static final int TOPLEFT = 0, TOP = 1, TOPRIGHT = 2;
 	public static final int LEFT = 3, CENTER = 4, RIGHT = 5;
@@ -21,7 +19,8 @@ public class Tilemap
 		this.tileSize = tileSize;
 
 		String basepath = String.format("assets/tilemaps/%s/", name);
-		imgTiles = new Image("file:" + basepath + "Tilemap.png");
+		imgTiles = new Image("file:" + basepath + "TilemapC.png");
+		imgTilesFg = new Image("file:" + basepath + "TilemapFront.png");
 		
 		floors = new int[3][7];
 		for (int x = 0; x < floors.length; x++)
@@ -49,6 +48,10 @@ public class Tilemap
 	public Image getTilesImg()
 	{
 		return imgTiles;
+	}
+	public Image getFgTilesImg()
+	{
+		return imgTilesFg;
 	}
 	public int[] getFloorPosition(int id)
 	{

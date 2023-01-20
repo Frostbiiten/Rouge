@@ -42,9 +42,8 @@ public class Player
 	private Vector2 currentGunPos;
 	private Vector2 recoilOffset;
 
-	// Dust
-	private int dustSpawnCounter;
-	private final int dustSpawnInterval = 20;
+	// Misc
+	private Rectangle currentRoom;
 	
 	// Constructor
 	public Player()
@@ -73,9 +72,6 @@ public class Player
 
 		// Create imageview for gun and add to pane
 		gunView = new ImageView(guns.get(currentGun).getImage());
-
-		// Dust fields
-		dustSpawnCounter = 0;
 
 		// Set up timeline for rolling
 		rollTimeline = new Timeline(new KeyFrame(Duration.seconds(0.1), new EventHandler<ActionEvent>()
@@ -127,6 +123,10 @@ public class Player
 		
 		Map map = GameManager.getMap();
 		int tileSize = map.getTilemap().getTileSize();
+
+		// Get current room
+		currentRoom = map.getRoom(position.x, position.y);
+		UI.addMinimapRoom(currentRoom);
 		
 		// ** needed to 'scale' coordinates to tile
 		Vector2 leftTilePos = map.getTilePosition(position.x - radius.x, position.y - radius.y);
@@ -216,13 +216,6 @@ public class Player
 		Vector2 ditherCheckPos = map.getTilePosition(position.x, position.y + radius.y);
 		map.setDithering(!map.getFloorTile((int)ditherCheckPos.x, (int)ditherCheckPos.y + 2) || bottomWall);
 
-		dustSpawnCounter++;
-		if(dustSpawnCounter >= dustSpawnInterval && (Math.abs(velocity.x) > 0.5 || Math.abs(velocity.y) > 0.5))
-		{
-			VFX.spawnDust((int)(position.x - velocity.x), (int)(position.y - velocity.y));
-			dustSpawnCounter = 0;
-		}
-
 		// Move player and update bounds
 		position.x += velocity.x;
 		position.y += velocity.y;
@@ -232,6 +225,7 @@ public class Player
 		Vector2 camPos = new Vector2(
 			position.x - AppProps.BASE_WIDTH / 2 + (InputManager.getMousePos().x - AppProps.REAL_WIDTH / 2) * 0.1,
 			position.y - AppProps.BASE_HEIGHT / 2 + (InputManager.getMousePos().y - AppProps.REAL_HEIGHT / 2) * 0.12);
+
 		Camera.setPos(Vector2.Lerp(Camera.getPos(), camPos, 0.4));
 
 		// Update direction facing based on mouse position
@@ -375,5 +369,11 @@ public class Player
 	{
 		position.x = x;
 		position.y = y;
+	}
+
+	// Method to get room player current is in
+	public Rectangle getRoom()
+	{
+		return currentRoom;
 	}
 }

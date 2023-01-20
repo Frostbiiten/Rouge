@@ -51,13 +51,6 @@ public class RocketProjectile extends Projectile
 		// Set sprite
 		this.sprite = sprite;
 
-		if (playerOwned)
-		{
-			sprite.getNode().setPreserveRatio(true);
-			sprite.getNode().setFitHeight(20);
-			sprite.getNode().setRotate(Math.toDegrees(Math.atan2(yDir, xDir)));
-		}
-
 		radius = 4;
 
 		// Set shot speed according to the shooter
@@ -99,7 +92,7 @@ public class RocketProjectile extends Projectile
 	{
 		// There is not much special behaviour for the default gun (no reflect, etc)
 		VFX.spawnHitImpact((int)xPos, (int)yPos, 180 + Math.toDegrees(Math.atan2(xVel, -yVel)));
-		GameManager.addExplosion(new Explosion(xPos - xVel * 1.5, yPos - yVel * 1.5, Explosion.MEDIUM, 50, 10, playerOwned));
+		GameManager.addExplosion(new Explosion(xPos - xVel * 1.5, yPos - yVel * 1.5, Explosion.MEDIUM, 17, 10, playerOwned));
 		Camera.shakeCamera(10, 0.8, 1);
 	}
 }
