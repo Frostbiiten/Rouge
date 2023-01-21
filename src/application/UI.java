@@ -57,11 +57,16 @@ public class UI
 	private static Label lblStartRoom, lblEndRoom;
 
 	// Label for extra info
-	public static Label lblInfo;
+	private static Label lblInfo;
 	private static double infoTimer;
 
 	// Room border gradients
 	private static ImageView rightGradient, leftGradient, topGradient, bottomGradient;
+
+	// Game over
+	private static GridPane gameOverPane;
+	private static Label lblGameOver;
+	private static Label lblGameOverPrompt;
 
 	public static void init(Pane root)
 	{
@@ -121,6 +126,8 @@ public class UI
 			}
 		});
 		hpFlickerTimeline.setCycleCount(40);
+
+		initGameOver();
 
 		// Add ui gridpane to root pane
 		root.getChildren().add(uiPane);
@@ -244,7 +251,7 @@ public class UI
 		HBox ammoBox = new HBox();
 		ammoBox.setAlignment(Pos.BOTTOM_RIGHT);
 		ammoBox.getChildren().addAll(lblAmmo, lblMags);
-		ammoBox.setPrefWidth(200);
+		ammoBox.setPrefWidth(300);
 
 		weaponImgView = new ImageView(new Image("file:assets/guns/default.png"));
 		weaponImgView.setPreserveRatio(true);
@@ -284,6 +291,41 @@ public class UI
 		bottomGradient.setFitWidth(AppProps.REAL_WIDTH);
 		bottomGradient.setScaleY(-1);
 		GameManager.getRoot().getChildren().add(bottomGradient);
+	}
+	private static void initGameOver()
+	{
+		// Create main gridpane
+		gameOverPane = new GridPane();
+		gameOverPane.setPrefWidth(AppProps.REAL_WIDTH);
+		gameOverPane.setPrefHeight(AppProps.REAL_HEIGHT);
+		gameOverPane.setStyle("-fx-background-color: black");
+		gameOverPane.setOpacity(0);
+
+		// Note: this is still enabled intentionally
+		gameOverPane.setGridLinesVisible(true);
+
+		// Create main label
+		lblGameOver = new Label("GAME OVER!");
+		lblGameOver.setFont(Font.loadFont(AppProps.fontAPath, 60));
+		lblGameOver.setTextFill(Color.WHITE);
+		lblGameOver.setScaleX(0);
+		lblGameOver.setScaleY(0);
+
+		// Create bottom label
+		lblGameOverPrompt = new Label("Press 'L' to leave,\n press 'R' to retry");
+		lblGameOverPrompt.setFont(Font.loadFont(AppProps.fontBPath, 20));
+		lblGameOverPrompt.setTextFill(Color.WHITE);
+		lblGameOverPrompt.setPrefHeight(200);
+		lblGameOverPrompt.setScaleX(0);
+		lblGameOverPrompt.setScaleY(0);
+
+		// Set GridPane class properties and add to pane
+		GridPane.setVgrow(lblGameOver, Priority.ALWAYS);
+		GridPane.setHgrow(lblGameOver, Priority.ALWAYS);
+		GridPane.setHalignment(lblGameOver, HPos.CENTER);
+		GridPane.setHalignment(lblGameOverPrompt, HPos.CENTER);
+		gameOverPane.add(lblGameOver, 0, 0);
+		gameOverPane.add(lblGameOverPrompt, 0, 1);
 	}
 	
 	// Method to update crosshair position on screen
@@ -379,14 +421,28 @@ public class UI
 
 	public static void updateBorders()
 	{
+		if (GameManager.getPlayer().getDead())
+		{
+			gameOverPane.setOpacity(Util.lerp(gameOverPane.getOpacity(), 1, 0.05));
+			lblGameOver.setScaleX(Util.lerp(lblGameOver.getScaleX(), 1, 0.05));
+			lblGameOver.setScaleY(Util.lerp(lblGameOver.getScaleY(), 1, 0.05));
+			lblGameOverPrompt.setScaleX(Util.lerp(lblGameOverPrompt.getScaleX(), 1, 0.02 * lblGameOver.getScaleX()));
+			lblGameOverPrompt.setScaleY(Util.lerp(lblGameOverPrompt.getScaleY(), 1, 0.02 * lblGameOver.getScaleY()));
+		}
+
 		Rectangle room = GameManager.getPlayer().getActiveRoom();
 
 		if (room != null)
 		{
-			topGradient.setY((room.getY() - Camera.getY()) * AppProps.SCALE - AppProps.REAL_HEIGHT);
-			bottomGradient.setY((room.getY() + room.getHeight() - Camera.getY()) * AppProps.SCALE - 50);
-			leftGradient.setX((room.getX() - Camera.getX()) * AppProps.SCALE - AppProps.REAL_WIDTH);
-			rightGradient.setX((room.getX() + room.getWidth() - Camera.getX()) * AppProps.SCALE);
+			double topY = (room.getY() - Camera.getY());
+			double bottomY = (room.getY() + room.getHeight() - Camera.getY());
+			double leftX = (room.getX() - Camera.getX());
+			double rightX = (room.getX() + room.getWidth() - Camera.getX());
+
+			topGradient.setY(topY * AppProps.SCALE - AppProps.REAL_HEIGHT);
+			bottomGradient.setY(bottomY * AppProps.SCALE - 50);
+			leftGradient.setX(leftX * AppProps.SCALE - AppProps.REAL_WIDTH);
+			rightGradient.setX(rightX * AppProps.SCALE);
 
 			// Interpolate opacity from 0 to 1 to fade in
 			topGradient.setOpacity(Util.lerp(topGradient.getOpacity(), 1, 0.1));
@@ -492,6 +548,25 @@ public class UI
 		else
 		{
 			lblInfo.setTranslateY(Util.lerp(lblInfo.getTranslateY(), -150, 0.1));
+		}
+	}
+
+	public static void gameOver()
+	{
+		GameManager.getRoot().getChildren().add(gameOverPane);
+		gameOverPane.toFront();
+	}
+
+	public static void gameOverResponse(boolean retry)
+	{
+		if (retry)
+		{
+			GameManager.setLevel(0);
+			GameManager.play();
+		}
+		else
+		{
+			GameManager.start(GameManager.getStage());
 		}
 	}
 

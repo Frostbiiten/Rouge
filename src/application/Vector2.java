@@ -1,5 +1,7 @@
 package application;
 
+import java.util.function.DoubleToIntFunction;
+
 public class Vector2 
 {
     enum Direction

@@ -56,7 +56,7 @@ public class Player
 	public Player()
 	{
 		// Default 4 hp
-		hp = 4;
+		hp = 1;
 
 		// Initialize movement variables and dimensions
 		position = new Vector2();
@@ -74,7 +74,7 @@ public class Player
 		guns = new ArrayList<Gun>();
 		//guns.add(new DefaultGun(true));
 		guns.add(new FastGun(true));
-		guns.get(0).setAmmo(999);
+		guns.get(0).setAmmo(100);
 		currentGun = 0;
 
 		// Create imageview for gun and add to pane
@@ -356,6 +356,12 @@ public class Player
 	// Run whenever the player clicks
 	public void click(boolean left)
 	{
+		// Return if already dead
+		if (dead)
+		{
+			return;
+		}
+
 		if (left)
 		{
 			if (currentGun >= 0 && currentGun < guns.size())
@@ -383,6 +389,12 @@ public class Player
 	// Run whenever the player scrolls
 	public void scroll(double delta)
 	{
+		// Return if already dead
+		if (dead)
+		{
+			return;
+		}
+
 		// Cancel reload when weapon changed
 		guns.get(currentGun).cancelReload();
 
@@ -399,9 +411,8 @@ public class Player
 		// Scroll through different weapons, use modulo to limit range
 		currentGun += delta;
 		currentGun = Math.floorMod(currentGun, guns.size());
-		System.out.print (guns.size());
-		UI.updateWeapon();
 		gunView.setImage(guns.get(currentGun).getImage());
+		UI.updateWeapon();
 	}
 	
 	// Game mechanic methods
@@ -420,10 +431,18 @@ public class Player
 		Camera.shakeCamera(4, 0.7, 1);
 		VFX.spawnCritical(position.x, position.y);
 
+		// Kill player if necessary
 		if (hp == 0)
 		{
 			dead = true;
-			System.out.print("Die player");
+
+			for (int i = 0; i < 4; i++)
+			{
+				VFX.spawnCritical(position.x + Math.random() * 40 - 20, position.y + Math.random() * 40 - 20);
+			}
+
+			GameManager.gameOver();
+			UI.gameOver();
 		}
 	}
 	public void updateGun()
@@ -463,6 +482,14 @@ public class Player
 	{
 		return guns.get(currentGun);
     }
+    public ArrayList<Gun> getWeapons()
+	{
+		return guns;
+    }
+    public int getHp()
+	{
+		return hp;
+    }
 	public ImageView getGunNode()
 	{
 		return gunView;
@@ -471,18 +498,17 @@ public class Player
 	{
 		return facing;
 	}
-
-	// Mutator methods
-	public void setPosition(double x, double y)
+    public int getWeaponIndex()
 	{
-		position.x = x;
-		position.y = y;
-	}
-
-	// Method to get room player current is in
+		  return currentGun;
+    }
 	public Rectangle getCurrentRoom()
 	{
 		return currentRoom;
+	}
+	public boolean getDead()
+	{
+		return dead;
 	}
 
 	// Method to get last active room player current is in
@@ -513,4 +539,26 @@ public class Player
 		// If here is reached, the player must not have owned the gun, so grant it
 		guns.add(gun);
 	}
+
+	// Mutator methods
+	public void setPosition(double x, double y)
+	{
+		position.x = x;
+		position.y = y;
+	}
+	public void setHp(int hp)
+	{
+		this.hp = hp;
+		UI.updateHealth(hp);
+	}
+    public void setWeapons(ArrayList<Gun> weapons)
+	{
+		guns = weapons;
+    }
+    public void setWeaponIndex(int index)
+	{
+		currentGun = index;
+		gunView.setImage(guns.get(currentGun).getImage());
+		UI.updateWeapon();
+    }
 }

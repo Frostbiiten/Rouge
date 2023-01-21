@@ -94,6 +94,18 @@ public class GameManager
 	{
 		try
 		{
+			// Check if player is progressing and not just starting the game
+			boolean progressing = currentLevel != 0;
+			ArrayList<Gun> oldGuns = null;
+			int oldHp = 0, oldWeaponIndex = 0;
+
+			if (progressing)
+			{
+				oldGuns = new ArrayList<Gun>(player.getWeapons());
+				oldHp = player.getHp();
+				oldWeaponIndex = player.getWeaponIndex();
+			}
+
 			// Increment current level
 			currentLevel++;
 
@@ -155,6 +167,15 @@ public class GameManager
 
 			// Initialize UI
 			UI.init(root);
+
+			// Carry over guns and hp from previous level
+			if (progressing)
+			{
+				// Replace player guns with stored guns
+				player.setWeapons(oldGuns);
+				player.setHp(oldHp);
+				player.setWeaponIndex(oldWeaponIndex);
+			}
 
 			// Initialize VFX
 			VFX.init();
@@ -219,6 +240,10 @@ public class GameManager
 		{
 			nextRound();
 		}
+
+
+		// Update player
+		player.update();
 
 		// Update every projectile
 		for (int projectile = 0; projectile < projectiles.size(); projectile++)
@@ -288,9 +313,6 @@ public class GameManager
 				explosions.remove(currentExplosion);
 			}
 		}
-
-		// Update player
-		player.update();
 
 		// Update every prop
 		for (int prop = 0; prop < props.size(); prop++)
@@ -400,12 +422,14 @@ public class GameManager
 			Vector2 spawnPos = new Vector2();
 			for (int attempts = 0; attempts < 10; attempts++)
 			{
-				spawnPos.x = room.getX() + 50 + Math.random() * (room.getWidth() - 100);
-				spawnPos.y = room.getY() + 50 + Math.random() * (room.getHeight() - 100);
+				spawnPos.x = room.getX() + 20 + Math.random() * (room.getWidth() - 80);
+				spawnPos.y = room.getY() + 20 + Math.random() * (room.getHeight() - 80);
 
 				for (int otherEnemy = 0; otherEnemy < enemies.size(); otherEnemy++)
 				{
-					if (enemies.get(otherEnemy).getMask().contains(spawnPos.x, spawnPos.y))
+					Rectangle other = enemies.get(otherEnemy).getMask();
+					Rectangle boundCheckRect = new Rectangle(other.getX() - 20, other.getY() - 20, other.getWidth() + 40, other.getWidth() + 40);
+					if (boundCheckRect.contains(spawnPos.x, spawnPos.y))
 					{
 						// Randomize again
 						continue;
@@ -415,6 +439,20 @@ public class GameManager
 			Enemy e = new NormalEnemy("0", new Vector2(spawnPos.x, spawnPos.y), room);
 			addEnemy(e);
 		}
+	}
+	public static void gameOver()
+	{
+		// Remove all enemies
+		for (int i = 0; i < enemies.size(); i++)
+		{
+			removeEnemy(enemies.get(i));
+		}
+
+		enemies.clear();
+		projectiles.clear();
+		props.clear();
+		explosions.clear();
+		pickups.clear();
 	}
 
 	// Methods for getting and setting level integer
@@ -505,7 +543,11 @@ public class GameManager
 		return explosion.getMask().intersects(player.getMask());
 	}
 
-	// Various accessor methods for various game parts
+	// Various accessor methods for core game parts
+	public static Stage getStage()
+	{
+		return primaryStage;
+	}
 	public static Pane getRoot()
 	{
 		return root;

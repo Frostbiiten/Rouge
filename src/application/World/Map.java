@@ -182,6 +182,8 @@ public class Map
 				}
 			}
 		
+			int currentLevel = GameManager.getLevel();
+
 			// Place enemies
 			if (tileRooms.get(i) == startTileRoom || tileRooms.get(i) == endTileRoom)
 			{
@@ -190,22 +192,13 @@ public class Map
 			}
 			else
 			{
-				if (tileRooms.get(i) == endRoom)
-				{
-					// ID for boss
-					spawnPatterns[i] = new int[]{-1};
-				}
-				else
-				{
-					// Randomize the number of 'rounds' per room
-					spawnPatterns[i] = new int[(int)(1 + Math.random() * 3)];
-				}
+				// Randomize the number of 'rounds' per room
+				spawnPatterns[i] = new int[(int)(1 + Math.random() * 3)];
 
-				int roundEnemyCount = 1;
 				for (int j = 0; j < spawnPatterns[i].length; j++)
 				{
+					int roundEnemyCount = 1 + (int)(Math.random() * 2) + (currentLevel / 4);
 					spawnPatterns[i][j] = roundEnemyCount;
-					roundEnemyCount += (int)(Math.random() * 3);
 				}
 			}
 		}

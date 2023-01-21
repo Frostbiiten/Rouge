@@ -22,7 +22,6 @@ public class InputManager
 		directionalInput = new Vector2(0, 0);
 		mousePos = new Vector2(0, 0);
 		
-		// TODO: make generic version of this (maybe array of keycode-bool pairs to update or something)
 		scene.setOnKeyPressed(e -> {
 			if (e.getCode() == KeyCode.W)
 			{
@@ -43,6 +42,20 @@ public class InputManager
 			{
 				right = true;
 				updateDirectionalInput();
+			}
+			else if (e.getCode() == KeyCode.L)
+			{
+				if (GameManager.getPlayer().getDead())
+				{
+					UI.gameOverResponse(false);
+				}
+			}
+			else if (e.getCode() == KeyCode.R)
+			{
+				if (GameManager.getPlayer().getDead())
+				{
+					UI.gameOverResponse(true);
+				}
 			}
 		});
 
