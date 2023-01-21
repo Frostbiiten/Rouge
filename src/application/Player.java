@@ -17,7 +17,7 @@ import javafx.util.Duration;
 public class Player
 {
 	// Player movement
-	private final double movementSpeed = 10;
+	private final double movementSpeed = 2;
 	private Vector2 position;
 	private Vector2 velocity;
 	private Vector2 facing;
@@ -50,13 +50,12 @@ public class Player
 	// Points and level completion
 	private boolean levelCompleted;
 	private boolean dead;
-	private int points;
 	
 	// Constructor
 	public Player()
 	{
 		// Default 4 hp
-		hp = 1;
+		hp = 4;
 
 		// Initialize movement variables and dimensions
 		position = new Vector2();
@@ -72,9 +71,7 @@ public class Player
 
 		// Initialize gun and grant player default weapon
 		guns = new ArrayList<Gun>();
-		//guns.add(new DefaultGun(true));
-		guns.add(new FastGun(true));
-		guns.get(0).setAmmo(100);
+		guns.add(new DefaultGun(true));
 		currentGun = 0;
 
 		// Create imageview for gun and add to pane

@@ -582,32 +582,6 @@ public class Map
 		return upscaledTiles;
 	}
 
-	// Method to print the generated floor tiles map for debugging purposes
-	private void debugPrintMap(boolean[][] floorTiles)
-	{
-		// Print row by row (x in inner loop)
-		for (int y = 0; y < height; y++)
-		{
-			for (int x = 0; x < width; x++)
-			{
-				if(floorTiles[x][y])
-				{
-					System.out.print("▓");
-				}
-				else
-				{
-					System.out.print("░");
-				}
-			}
-
-			// End line after each row
-			System.out.println();
-		}
-
-		// Print line to pad
-		System.out.println();
-	}
-
 	// Method to choose start and end rooms, along with others
 	private void chooseRooms()
 	{

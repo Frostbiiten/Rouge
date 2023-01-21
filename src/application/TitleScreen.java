@@ -11,6 +11,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.RowConstraints;
 import javafx.scene.paint.Color;
@@ -18,21 +19,19 @@ import javafx.scene.text.Font;
 
 public class TitleScreen
 {
-    private static Button btnTutorial, btnPlay, btnSettings;
+    private static Button btnTutorial, btnPlay;
     private static GridPane titleScreenPane;
     private static Label lblTitle;
-
-    private static String currentDialogStr;
 
     // Initialize title screen
     public static void init()
     {
         // Crate title screen root gridpane
         titleScreenPane = new GridPane();
-        titleScreenPane.setGridLinesVisible(true);
         titleScreenPane.setMinWidth(AppProps.REAL_WIDTH);
         titleScreenPane.setMinHeight(AppProps.REAL_HEIGHT);
         titleScreenPane.setAlignment(Pos.CENTER);
+        titleScreenPane.setVisible(true);
 
         // Create label and buttons
         lblTitle = new Label("ROUGE");
@@ -44,44 +43,37 @@ public class TitleScreen
         // Add label to pane
         titleScreenPane.getRowConstraints().add(new RowConstraints(500));
         titleScreenPane.add(lblTitle, 0, 0);
-        GridPane.setColumnSpan(lblTitle, 3);
-
         Font buttonFont = Font.loadFont(AppProps.fontAPath, 15);
 
+        HBox b = new HBox(10);
+
         // Add tutorial button
-        titleScreenPane.getColumnConstraints().add(new ColumnConstraints(AppProps.REAL_WIDTH / 3));
         btnTutorial = new Button("Tutorial");
         btnTutorial.setPrefSize(200, 50);
         btnTutorial.setFont(buttonFont);
-
+        btnTutorial.setAlignment(Pos.CENTER);
         btnTutorial.setOnAction(e -> {
         	showTutorial();
         });
 
-        GridPane.setHalignment(btnTutorial, HPos.RIGHT);
-        titleScreenPane.add(btnTutorial, 0, 1);
+        b.getChildren().add(btnTutorial);
 
         // Add play button
-        titleScreenPane.getColumnConstraints().add(new ColumnConstraints(AppProps.REAL_WIDTH / 3));
         btnPlay = new Button("Play");
         btnPlay.setPrefSize(200, 50);
         btnPlay.setFont(buttonFont);
         GridPane.setHalignment(btnPlay, HPos.CENTER);
-        titleScreenPane.add(btnPlay, 1, 1);
+        b.getChildren().add(btnPlay);
         
         // Start game when play pressed
         btnPlay.setOnAction(e -> {
         	GameManager.getRoot().getChildren().remove(titleScreenPane);
         	GameManager.play();
         });
-        
-        titleScreenPane.getColumnConstraints().add(new ColumnConstraints(AppProps.REAL_WIDTH / 3));
-        btnSettings = new Button("Settings");
-        btnSettings.setPrefSize(200, 50);
-        btnSettings.setFont(buttonFont);
-        GridPane.setHalignment(btnSettings, HPos.LEFT);
-        titleScreenPane.add(btnSettings, 2, 1);
 
+        b.setAlignment(Pos.CENTER);
+        GridPane.setHalignment(b, HPos.CENTER);
+        titleScreenPane.add(b, 0, 1);
 
         // Set background color
 		titleScreenPane.setStyle(String.format("-fx-background-color: rgb(%d, %d, %d)", 10, 10, 10));
@@ -96,38 +88,41 @@ public class TitleScreen
     	Image imgTheBullet = new Image("file:assets/dialogue/thebullet.png");
 
     	// Create alerts in order to display to player
-    	Alert alert = new Alert(AlertType.INFORMATION);
     	ImageView v = new ImageView(imgTheBullet);
     	v.setFitWidth(70);
     	v.setPreserveRatio(true);
+
+    	Alert alert = new Alert(AlertType.INFORMATION);
     	alert.setHeaderText(null);
-    	alert.setGraphic(v);
-    	currentDialogStr = "Hello there! jiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii!!!";
     	alert.setTitle("The Bullet");
+    	alert.setGraphic(v);
+
+        // Show dialogue pieces
+        alert.setContentText("Hello there! My name is the bullet and I'm here to help!");
     	alert.showAndWait();
-    
-		// Timers
-		AnimationTimer typingTimer = new AnimationTimer()
-		{
-			@Override
-			public void handle(long now)
-			{
-				// Next index is current length (because length - 1 relation)
-				int nextIndex = alert.getContentText().length();
-				
-				if (nextIndex == currentDialogStr.length())
-				{
-					this.stop();
-					return;
-				}
 
-				alert.setContentText(alert.getContentText() + currentDialogStr.charAt(nextIndex));
-			}
-		};
-		typingTimer.start();
+        alert.setContentText("This game uses a keyboard and mouse control scheme. you can use WASD to move and the mouse to aim.");
+    	alert.showAndWait();
 
-		alert.setContentText("");
-    	currentDialogStr = "two";
-    	typingTimer.start();
+        alert.setContentText("You can shoot at enemies, crates and barrels by aiming and clicking or holding on the left mouse button!");
+    	alert.showAndWait();
+
+        alert.setContentText("If you're ever in a tight spot, right click the mouse to perform a dodge - It will make you temporarily invulnerable.");
+    	alert.showAndWait();
+
+        alert.setContentText("Your job is to go as far down into the dungeon as possible. Avoid dying from enemy attacks and explosions while traversing the labyrinth, and you will be awarded with points! The more destruction, the more points!");
+    	alert.showAndWait();
+
+        alert.setContentText("Destroying crates and barrels will drop valuable items, such as health, ammo, or even more guns (other than increasing your score)");
+    	alert.showAndWait();
+
+        alert.setContentText("There will be a radar at the top right of your view to help you find out where the end room is. However, you may have to do some searching yourself before it pops up.");
+    	alert.showAndWait();
+
+        alert.setContentText("Be wary soldier, ammo is limited. I have equipped you with a basic weapon with unlimited ammo, but it definitely isn't the most optimal weapon.");
+    	alert.showAndWait();
+
+        alert.setContentText("Good luck out there, generic red square!");
+    	alert.showAndWait();
     }
 }

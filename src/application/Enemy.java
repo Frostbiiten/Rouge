@@ -94,17 +94,24 @@ public abstract class Enemy
 
 	protected void die()
 	{
+		// When dead, remove all sprites from the pane
 		GameManager.getRoot().getChildren().remove(idleSprites.getNode());
 		GameManager.getRoot().getChildren().remove(actionSprites.getNode());
 		GameManager.getRoot().getChildren().remove(gunView);
 
+		// Cause a deathexplosion that does no damage
 		Explosion deathExplosion = new Explosion(position.x, position.y, Explosion.SMALL, 0, true, true);
 		GameManager.addExplosion(deathExplosion);
 
+		// Remove the enemy from the arraylist to no longer keep track of it
 		GameManager.removeEnemy(this);
 	}
 	protected void damage()
 	{
+		// Add 5 points for every damage hit dealt
+		GameManager.addPoints(hp * 5);
+
+		// Deduct health and check if enemy should die
 		hp--;
 		if (hp < 0)
 		{

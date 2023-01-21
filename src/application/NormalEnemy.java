@@ -137,8 +137,14 @@ public class NormalEnemy extends Enemy
 	@Override
 	void actionUpdate()
 	{
-		running = !running;
+		// Stop running if player is already dead
+		if(GameManager.getPlayer() == null || GameManager.getPlayer().getDead())
+		{
+			actionTimeline.stop();
+			return;
+		}
 
+		running = !running;
 		if (running)
 		{
 			idleSprites.getNode().setX(-9999);

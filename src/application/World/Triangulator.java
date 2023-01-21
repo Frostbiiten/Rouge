@@ -69,7 +69,6 @@ public class Triangulator
 					Edge edgeA = uniqueEdges.get(a);
 					Edge edgeB = uniqueEdges.get(b);
 					
-					// TODO: check for reverse a->b to b-> too
 					// Check if edges are the same (too similar)
 					if (closeTo(edgeA, edgeB))
 					{
@@ -105,7 +104,6 @@ public class Triangulator
 			}
 		}
 		
-		// TODO: hash these???
 		ArrayList<Edge> finalEdges = new ArrayList<Edge>();
 		for (int i = 0; i < tris.size(); i++)
 		{

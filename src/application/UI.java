@@ -1,3 +1,4 @@
+
 package application;
 import java.util.ArrayList;
 
@@ -28,6 +29,7 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.util.Duration;
 
+// Pane Clipping was used in this class: https://news.kynosarges.org/2016/11/03/javafx-pane-clipping/
 public class UI
 {
 	public static BorderPane uiPane;
@@ -180,7 +182,6 @@ public class UI
 		topPane.add(hpBox, 0, 0);
 
 		// Create minimap with clipping
-		// Pane Clipping https://news.kynosarges.org/2016/11/03/javafx-pane-clipping/
 		minimap = new Pane();
 		minimap.setMaxWidth(200);
 		minimap.setMinHeight(200);

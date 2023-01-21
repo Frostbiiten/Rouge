@@ -1,20 +1,27 @@
 package application;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.util.ArrayList;
+import java.util.Optional;
 
 import application.World.Map;
 import application.World.Tilemap;
 import javafx.animation.AnimationTimer;
-import javafx.geometry.Insets;
+import javafx.application.Platform;
 import javafx.scene.Cursor;
 import javafx.scene.Scene;
-import javafx.scene.control.Label;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.image.*;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
-import javafx.scene.layout.VBox;
 import javafx.scene.shape.Rectangle;
-import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
 public class GameManager
@@ -41,6 +48,7 @@ public class GameManager
 	// Progression
 	private static AnimatedSprite portal;
 	private static int currentLevel;
+	private static int points;
 
 	// Rendering
 	private static WritableImage bgImg;
@@ -49,10 +57,6 @@ public class GameManager
 	private static ImageView bgView;
 	private static ImageView fgView;
 	private static Tilemap tilemap;
-
-	// Debug
-    private static StringBuilder debugStr = new StringBuilder();
-    private static Label lblDebug;
 
 	// Timers
 	private static AnimationTimer gameTimer = new AnimationTimer()
@@ -68,6 +72,7 @@ public class GameManager
 		}
 	};
 
+	// Start is called at the beginning of the program
 	public static void start(Stage primaryStage)
 	{
 		// Set stage
@@ -81,15 +86,17 @@ public class GameManager
 		// Init title screen
 		TitleScreen.init();
 
-		// Default level
+		// Default level and score
 		currentLevel = 0;
+		points = 0;
 
 		// Show primary stage
 		primaryStage.setTitle("ROUGE");
 		primaryStage.setScene(scene);
 		primaryStage.show();
 	}
-
+	
+	// Pay is called at the beginning of a run
 	public static void play()
 	{
 		try
@@ -104,6 +111,9 @@ public class GameManager
 				oldGuns = new ArrayList<Gun>(player.getWeapons());
 				oldHp = player.getHp();
 				oldWeaponIndex = player.getWeaponIndex();
+				
+				// 100 * currentLevel points are added to incentivise progression
+				points += currentLevel * 100;
 			}
 
 			// Increment current level
@@ -148,7 +158,7 @@ public class GameManager
 			root.setStyle(String.format("-fx-background-color: rgb(%d, %d, %d)", 20, 20, 18));
 
 			// Create map, get start room and get props arraylist
-			map = new Map(100, 80, 5, tilemap);
+			map = new Map(100, 80, 25, tilemap);
 			Rectangle startRoom = map.getStartTileRoom();
 			props = map.getProps();
 
@@ -182,29 +192,11 @@ public class GameManager
 			
 			// Initialize Audio
 			AudioManager.init();
-			
-			// Add debug label with background
-			Label lblDebugTitle = new Label();
-			lblDebugTitle.setFont(Font.loadFont("file:Inter-ExtraBold.ttf", 20));
-			lblDebugTitle.setText("Debug");
-
-			lblDebug = new Label();
-			lblDebug.setFont(Font.loadFont("file:SpaceGrotesk-SemiBold.ttf", 12));
-
-			VBox box = new VBox();
-			box.setSpacing(2);
-			box.setLayoutX(20);
-			box.setLayoutY(20);
-			box.setStyle("-fx-background-color: white");
-			box.setPadding(new Insets(8));
-			box.setPrefWidth(100);
-			box.getChildren().addAll(lblDebugTitle, lblDebug);
-			//root.getChildren().add(box);
 
 			// Start main game
 			gameTimer.start();
 
-			// Show tooltip of current level
+			// Show label on ui of current level
 			UI.setLabelInfo("Level " + currentLevel, 240);
 		}
 		catch (Exception e)
@@ -212,35 +204,25 @@ public class GameManager
 			e.printStackTrace();
 		}
 	}
-	public static void addDebugText(String label, Object value)
-	{
-		debugStr.append(label + ": " + value.toString() + '\n');
-	}
 
-	// Update during loading screens
-	private static void loadUpdate(long deltaTime)
-	{
-		fgImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
-		bgImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
-	}
+	// Main update-draw methods
 	private static void update(long deltaTime)
 	{
-		// Clear by resetting
-		debugStr = new StringBuilder();
-
-		// Update every enemy
-		for (int enemy = 0; enemy < enemies.size(); enemy++)
+		// Update every enemy if player isn't dead
+		if (!player.getDead())
 		{
-			Enemy currentEnemy = enemies.get(enemy);
-			currentEnemy.update();
+			for (int enemy = 0; enemy < enemies.size(); enemy++)
+			{
+				Enemy currentEnemy = enemies.get(enemy);
+				currentEnemy.update();
+			}
 		}
 
-		// Continue when necessary
+		// Continue to spawn next round of enemies when necessary
 		if (enemies.size() == 0 && player.getActiveRoom() != null)
 		{
 			nextRound();
 		}
-
 
 		// Update player
 		player.update();
@@ -263,6 +245,7 @@ public class GameManager
 				projectiles.remove(currentProjectile);
 			}
 
+			// If the projectile is not player owned, collision check against the player
 			if (!currentProjectile.getPlayerOwned())
 			{
 				if (playerCollision(currentProjectile))
@@ -274,6 +257,7 @@ public class GameManager
 				}
 			}
 
+			// If the projectile is player owned, collision check against the enemies
 			if (currentProjectile.getPlayerOwned())
 			{
 				for (int i = 0; i < enemies.size(); i++)
@@ -288,6 +272,7 @@ public class GameManager
 				}
 			}
 			
+			// Check if each prop is intersecting with the projectile for destruction
 			for (int i = 0; i < props.size(); i++)
 			{
 				if (props.get(i).getMask().intersects(currentProjectile.getMask()))
@@ -335,14 +320,6 @@ public class GameManager
 
 		// Update vfx
 		VFX.update();
-
-		// Update
-		addDebugText("ms ", String.format("%.2f", deltaTime / 1000000.0));
-		addDebugText("fps ", String.format("%.2f",  1 / (deltaTime / 1000000000.0)));
-		addDebugText("mod ", String.format("%.2f", (100.0/60) / (deltaTime / 10000000.0)));
-
-		// Set debug text
-		lblDebug.setText(debugStr.toString());
 	}
 	private static void draw(long deltaTime)
 	{
@@ -448,11 +425,160 @@ public class GameManager
 			removeEnemy(enemies.get(i));
 		}
 
+		// Stop keeping track of all game entities
 		enemies.clear();
 		projectiles.clear();
 		props.clear();
 		explosions.clear();
 		pickups.clear();
+
+		Platform.runLater(
+			new Runnable()
+			{
+				public void run()
+				{
+					// File manipulation
+					try 
+					{
+						// Prompt user for name
+						Alert namePromptAlert = new Alert(AlertType.INFORMATION);
+						namePromptAlert.setContentText("Would you like to save your score?");
+						namePromptAlert.setTitle("Save score?");
+						namePromptAlert.setHeaderText(null);
+						namePromptAlert.getButtonTypes().clear();
+						namePromptAlert.getButtonTypes().addAll(ButtonType.YES, ButtonType.NO);
+						Optional<ButtonType> alertResponse = namePromptAlert.showAndWait();
+
+						if (alertResponse.isPresent() && alertResponse.get() == ButtonType.YES)
+						{
+							// Prompt user for their name
+							TextInputDialog nameDialog = new TextInputDialog();
+							nameDialog.setTitle("Save score");
+							nameDialog.setHeaderText(null);
+							nameDialog.setContentText("Enter your name! :");
+
+							Optional<String> response = nameDialog.showAndWait();
+							if (response.isPresent())
+							{
+								// Get name
+								String name = response.get().trim();
+								if (name.length() == 0 || name.equals(" "))
+								{
+									return;
+								}
+
+								// Reference File that keeps track of various scores
+								File scoresFile = new File("scores.txt");
+
+								if (scoresFile.exists())
+								{
+									FileReader fr = new FileReader(scoresFile);
+									BufferedReader br = new BufferedReader(fr);
+
+									// Read all scores and names
+									ArrayList<Integer> scores = new ArrayList<Integer>();
+									ArrayList<String> names = new ArrayList<String>();
+
+									String currentLine;
+									while ((currentLine = br.readLine()) != null)
+									{
+										String[] parts = currentLine.split(" ");
+
+										// after 0th index is name because it may include spaces
+										String fullName = "";
+										for (int segment = 1; segment < parts.length; segment++)
+										{
+											fullName += parts[segment] + " ";
+										}
+
+										// First part is int score, the rest is the name string
+										scores.add(Integer.parseInt(parts[0]));
+										names.add(fullName);
+									}
+
+									// Add current to list
+									scores.add(points);
+									names.add(name);
+
+									// Sort using insertion sort
+									for (int end = 1; end < scores.size(); end++)
+									{
+										int item = scores.get(end);
+										String itemStr = names.get(end);
+										int index = end;
+
+										while (index > 0 && item < scores.get(index - 1))
+										{
+											// Manipulate both arraylists based on one to sort the pairs
+											scores.set(index, scores.get(index - 1));
+											names.set(index, names.get(index - 1));
+
+											index--;
+										}
+
+										scores.set(index, item);
+										names.set(index, itemStr);
+									}
+
+									int newIndex = -1;
+
+									// Get index (score/name might be the same, so make sure)
+									for (int i = 0; i < scores.size(); i++)
+									{
+										if (scores.get(i) == points && names.get(i).equals(name))
+										{
+											newIndex = i;
+										}
+									}
+
+									// Show score
+									Alert scoreAlert = new Alert(AlertType.INFORMATION);
+									scoreAlert.setContentText("Your score was in the top " + (scores.size() - newIndex) + " of recorded scores!");
+									scoreAlert.setHeaderText(null);
+									scoreAlert.setTitle("Score");
+									scoreAlert.showAndWait();
+
+									// Write back to file (append new score)
+									FileWriter fw = new FileWriter(scoresFile, true);
+									BufferedWriter bw = new BufferedWriter(fw);
+									bw.write(Integer.toString(points) + " " + name + "\n");
+									bw.close();
+								}
+								else
+								{
+									// Just write to file, as there are no other scores to compare to
+									FileWriter fw = new FileWriter(scoresFile);
+									BufferedWriter bw = new BufferedWriter(fw);
+
+									// Write [score] [name]
+									bw.write(Integer.toString(points) + " " + name);
+									bw.newLine();
+									bw.flush();
+
+									// Close writers
+									bw.close();
+									fw.close();
+								}
+							}
+						}
+					}
+					catch (Exception e)
+					{
+						e.printStackTrace();
+					}
+				}
+			}
+		);
+	}
+	
+	// Methods for adding and getting points
+	public static void addPoints(int num)
+	{
+		points += num;
+	}
+	public static int getPoints()
+	{
+		return points;
 	}
 
 	// Methods for getting and setting level integer
@@ -533,11 +659,11 @@ public class GameManager
 		return props;
 	}
 
+	// Methods to check if player collided with a projectile or explosion
 	public static boolean playerCollision(Projectile projectile)
 	{
 		return projectile.getMask().intersects(player.getMask());
 	}
-
 	public static boolean playerCollision(Explosion explosion)
 	{
 		return explosion.getMask().intersects(player.getMask());

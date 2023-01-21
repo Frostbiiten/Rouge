@@ -65,9 +65,13 @@ public class Barrel extends Prop
 			}
 		}
 		
+		// Destroy if there are 2 or more hits (because broken sprite is already being displayed)
 		if (hits > 1)
 		{
-			// Remove object from game
+			// Add a point for each object destroyed
+			GameManager.addPoints(1);
+
+			// Remove barrel from game
 			GameManager.removeProp(this);
 			
 			// 26% chance of spawning pickup
