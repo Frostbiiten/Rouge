@@ -1,6 +1,11 @@
 package application;
 
+import java.io.File;
+
 import javafx.scene.media.AudioClip;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+import javafx.util.Duration;
 
 public class AudioManager
 {
@@ -9,6 +14,8 @@ public class AudioManager
 
 	private static AudioClip[] explodeClips;
 	private static int lastExplodeClipIndex;
+	
+	private static MediaPlayer bgmPlayer;
 
 	public static void init()
 	{
@@ -22,6 +29,21 @@ public class AudioManager
 		for (int i = 0; i < explodeClips.length; i++)
 		{
 			explodeClips[i] = new AudioClip("file:assets/audio/explode" + Integer.toString((int)(Math.random() * 3 + 1)) + ".wav");
+		}
+
+		// Only start playing music on first time
+		if (bgmPlayer == null)
+		{
+			File backFile = new File ("assets/audio/bg.mp3");
+			Media bgm = new Media(backFile.toURI().toString());
+			bgmPlayer = new MediaPlayer(bgm);
+			bgmPlayer.setOnEndOfMedia(new Runnable() {
+			public void run()
+			{
+				bgmPlayer.seek(Duration.ZERO);
+			}
+			});
+			bgmPlayer.play();
 		}
 	}
 	
