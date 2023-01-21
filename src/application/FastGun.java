@@ -11,8 +11,8 @@ public class FastGun extends Gun
 
 		if (!playerOwned)
 		{
-			ammo = 10;
-			magazineSize = 10;
+			ammo = 7;
+			magazineSize = 7;
 		}
 
 		autoFire = true;
@@ -47,6 +47,9 @@ public class FastGun extends Gun
 			{
 				Camera.shakeCamera(15, 0.2, 1);
 			}
+
+			// Play sound effect
+			AudioManager.playShoot();
 			
 			// Create sprite for projectile and spawn it into the world 
 			AnimatedSprite sprite = new AnimatedSprite(new Image("file:assets/objects/bulletfast.png"), 15, 8, 1, true);
@@ -54,7 +57,12 @@ public class FastGun extends Gun
 			newProjectile.setXPos(newProjectile.getXPos() + Math.random() * 8 - 4);
 			newProjectile.setYPos(newProjectile.getYPos() + Math.random() * 8 - 4);
 			newProjectile.setRadius(2.5);
-			newProjectile.scaleVelocity(1.3);
+			
+			if (playerOwned)
+			{
+				newProjectile.scaleVelocity(1.3);
+			}
+
 			GameManager.spawnProjectile(newProjectile);
 
 			// Start cooldown timer

@@ -17,7 +17,7 @@ public abstract class Enemy
 	protected int hp;
 
 	// Visual
-	protected int spriteScale;
+	protected double spriteScale;
 	protected AnimatedSprite idleSprites, actionSprites, currentSprite; 
 	protected ImageView imgView;
 	protected ImageView gunView;
@@ -25,8 +25,9 @@ public abstract class Enemy
 	// Collision
 	protected Rectangle mask;
 	protected Vector2 radius;
+	protected Rectangle room;
 
-	Enemy(String name, int idleXSprites, int actionXSprites, Vector2 position, double actionInterval, Vector2 radius, int spriteScale, int hp)
+	Enemy(String name, int idleXSprites, int actionXSprites, Vector2 position, double actionInterval, Vector2 radius, double spriteScale, int hp, Rectangle room)
 	{
 		// Load sprites
 		Image idleSheet = new Image("file:assets/enemies/" + name + "/idle.png");
@@ -34,7 +35,7 @@ public abstract class Enemy
 
 		this.spriteScale = spriteScale;
 		idleSprites = new AnimatedSprite(idleSheet, 12, idleXSprites, 1, true);
-		actionSprites = new AnimatedSprite(runSheet, 6, actionXSprites, 1, true);
+		actionSprites = new AnimatedSprite(runSheet, 12, actionXSprites, 1, true);
 
 		currentSprite = idleSprites;
 		imgView = currentSprite.getNode();
@@ -61,6 +62,8 @@ public abstract class Enemy
 			@Override
 			public void handle(ActionEvent event)
 			{
+				// Anywhere between half and double speed
+				actionTimeline.setRate(Math.random() * 1.5 + 0.5);
 				actionUpdate();
 			}
 		}));
@@ -81,6 +84,9 @@ public abstract class Enemy
 		// Offscreen by default
 		actionSprites.getNode().setX(-9999);
 		actionSprites.getNode().setY(-9999);
+
+		// Set room with padding
+		this.room = new Rectangle(room.getX() + 10, room.getY() + 10, room.getWidth() - 20, room.getHeight() - 20);
 	}
 
 	abstract void update();

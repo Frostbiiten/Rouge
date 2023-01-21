@@ -2,6 +2,7 @@ package application;
 
 import application.World.Map;
 import javafx.scene.image.ImageView;
+import javafx.scene.shape.Rectangle;
 
 public class NormalEnemy extends Enemy
 {
@@ -15,9 +16,9 @@ public class NormalEnemy extends Enemy
 	private Vector2 recoilOffset;
 	private Vector2 currentGunPos;
 
-	NormalEnemy(String name, Vector2 position)
+	NormalEnemy(String name, Vector2 position, Rectangle room)
 	{
-		super(name, 6, 6, position, 3.5, new Vector2(6, 8), 3, 3);
+		super(name, 1, 6, position, 3.5, new Vector2(6, 8), 0.38, 3, room);
 		running = false;
 
 		// Choose random gun type
@@ -34,6 +35,9 @@ public class NormalEnemy extends Enemy
 		{
 			gun = new RocketGun(false);
 		}
+
+		// Add delay to enemy attacks by forcing reload
+		gun.setAmmo(0);
 
 		// Add 2 above to be on top of the enemy's actual sprites
 		gunView = new ImageView(gun.getImage());
@@ -57,13 +61,13 @@ public class NormalEnemy extends Enemy
 		}
 
 		Map map = GameManager.getMap();
+
 		Vector2 tilePos = map.getTilePosition(position.x, position.y);
 		if (!map.getFloorTile((int)tilePos.x - 1, (int)tilePos.y))
 		{
 			movementVector.x = 0;
 		}
-
-		if (!map.getFloorTile((int)tilePos.x + 1, (int)tilePos.y))
+		else if (!map.getFloorTile((int)tilePos.x + 1, (int)tilePos.y))
 		{
 			movementVector.x = 0;
 		}
@@ -72,10 +76,21 @@ public class NormalEnemy extends Enemy
 		{
 			movementVector.y = 0;
 		}
-
-		if (!map.getFloorTile((int)tilePos.x, (int)tilePos.y + 1))
+		else if (!map.getFloorTile((int)tilePos.x, (int)tilePos.y + 1))
 		{
 			movementVector.y = 0;
+		}
+
+		if (!room.contains(position.x, position.y))
+		{
+			if ((position.x < room.getX() && movementVector.x < 0) || (position.x > room.getX() + room.getWidth() && movementVector.x > 0))
+			{
+				movementVector.x =- movementVector.x * 0.3;
+			}
+			if ((position.y < room.getY() && movementVector.y < 0) || (position.y > room.getY() + room.getHeight() && movementVector.y > 0))
+			{
+				movementVector.y =- movementVector.y * 0.3;
+			}
 		}
 
 		Vector2 playerDirection = Vector2.Normalize(Vector2.Subtract(GameManager.getPlayer().getPosition(), position));

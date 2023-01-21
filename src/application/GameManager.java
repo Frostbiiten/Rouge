@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import application.World.Map;
 import application.World.Tilemap;
 import javafx.animation.AnimationTimer;
-import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Cursor;
 import javafx.scene.Scene;
@@ -27,15 +26,21 @@ public class GameManager
 
 	// Game
 	private static long currentTime, deltaTime;
-	private static long frame;
 	private static Map map;
 	private static Player player;
+	private static int currentRoomRound;
+	private static int[] roomSpawnPatterns;
 
 	// Game objects
 	private static ArrayList<Projectile> projectiles;
 	private static ArrayList<Explosion> explosions;
+	private static ArrayList<Pickup> pickups;
 	private static ArrayList<Enemy> enemies;
 	private static ArrayList<Prop> props;
+	
+	// Progression
+	private static AnimatedSprite portal;
+	private static int currentLevel;
 
 	// Rendering
 	private static WritableImage bgImg;
@@ -50,17 +55,6 @@ public class GameManager
     private static Label lblDebug;
 
 	// Timers
-	private static AnimationTimer loadTimer = new AnimationTimer()
-	{
-		@Override
-		public void handle(long now)
-		{
-			// deltatime in nanoseconds
-			deltaTime = now - currentTime;
-			currentTime = now;
-			loadUpdate(deltaTime);
-		}
-	};
 	private static AnimationTimer gameTimer = new AnimationTimer()
 	{
 		@Override
@@ -76,31 +70,41 @@ public class GameManager
 
 	public static void start(Stage primaryStage)
 	{
+		// Set stage
+		GameManager.primaryStage = primaryStage;
+		primaryStage.setResizable(false);
+
+		// Create root and scene
+		root = new Pane();
+		scene = new Scene(root, AppProps.REAL_WIDTH, AppProps.REAL_HEIGHT);
+
+		// Init title screen
+		TitleScreen.init();
+
+		// Default level
+		currentLevel = 0;
+
+		// Show primary stage
+		primaryStage.setTitle("ROUGE");
+		primaryStage.setScene(scene);
+		primaryStage.show();
+	}
+
+	public static void play()
+	{
 		try
 		{
-			// Reset frame
-			frame = 0;
+			// Increment current level
+			currentLevel++;
 
-			// Set stage
-			GameManager.primaryStage = primaryStage;
-			primaryStage.setResizable(false);
+			// Stop previous level timer and clear floor root children
+			gameTimer.stop();
+			root.getChildren().clear();
 
-			// Create root and scene
-			root = new Pane();
-			scene = new Scene(root, AppProps.REAL_WIDTH, AppProps.REAL_HEIGHT);
+			// Disable cursor
 			scene.setCursor(Cursor.NONE);
 
-			// Start loading thread
-			Platform.runLater(new Runnable()
-			{
-				public void run()
-				{
-					// Start loading
-					loadTimer.start();
-				}
-			});
-
-			// Set up game imageview
+			// Set up game foreground and background imageviews
 			bgView = new ImageView();
 			bgView.setFitWidth(AppProps.REAL_WIDTH);
 			bgView.setFitHeight(AppProps.REAL_HEIGHT);
@@ -115,6 +119,7 @@ public class GameManager
 			// Create projectile, explosion, enemies, and props arraylist
 			projectiles = new ArrayList<Projectile>();
 			explosions = new ArrayList<Explosion>();
+			pickups = new ArrayList<Pickup>();
 			enemies = new ArrayList<Enemy>();
 			props = new ArrayList<Prop>();
 
@@ -131,9 +136,16 @@ public class GameManager
 			root.setStyle(String.format("-fx-background-color: rgb(%d, %d, %d)", 20, 20, 18));
 
 			// Create map, get start room and get props arraylist
-			map = new Map(100, 80, 25, tilemap);
+			map = new Map(100, 80, 5, tilemap);
 			Rectangle startRoom = map.getStartTileRoom();
 			props = map.getProps();
+
+			// Create portal for end room
+			portal = new AnimatedSprite(new Image("file:assets/portal.png"), 16, 91, 1, true);
+			portal.getNode().setFitWidth(200);
+			portal.getNode().setPreserveRatio(true);
+			addAnimatedSprite(portal);
+			portal.play();
 
 			// Initialize player, set position to center of spawnroom
 			player = new Player();
@@ -147,14 +159,9 @@ public class GameManager
 			// Initialize VFX
 			VFX.init();
 			
-			System.out.println("Loading complete!");
+			// Initialize Audio
+			AudioManager.init();
 			
-			for (int i = 0; i < 1; i++)
-			{
-				//NormalEnemy e = new NormalEnemy("0", new Vector2(player.getPosition().x + i + 1, player.getPosition().y));
-				//addEnemy(e);
-			}
-
 			// Add debug label with background
 			Label lblDebugTitle = new Label();
 			lblDebugTitle.setFont(Font.loadFont("file:Inter-ExtraBold.ttf", 20));
@@ -173,14 +180,11 @@ public class GameManager
 			box.getChildren().addAll(lblDebugTitle, lblDebug);
 			//root.getChildren().add(box);
 
-			// Stop loading
-			loadTimer.stop();
+			// Start main game
 			gameTimer.start();
 
-			// Show primary stage
-			primaryStage.setTitle("Test");
-			primaryStage.setScene(scene);
-			primaryStage.show();
+			// Show tooltip of current level
+			UI.setLabelInfo("Level " + currentLevel, 240);
 		}
 		catch (Exception e)
 		{
@@ -193,38 +197,27 @@ public class GameManager
 	}
 
 	// Update during loading screens
-	public static void loadUpdate(long deltaTime)
+	private static void loadUpdate(long deltaTime)
 	{
 		fgImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
 		bgImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
 	}
-
-	public static void update(long deltaTime)
+	private static void update(long deltaTime)
 	{
 		// Clear by resetting
 		debugStr = new StringBuilder();
-		frame++;
-
-		// frame by frame debug
-		/*
-		if ((frame % 5) > 0)
-		{
-			return;
-		}
-		*/
-
-		// Update every prop
-		for (int prop = 0; prop < props.size(); prop++)
-		{
-			Prop currentProp = props.get(prop);
-			currentProp.update();
-		}
 
 		// Update every enemy
 		for (int enemy = 0; enemy < enemies.size(); enemy++)
 		{
 			Enemy currentEnemy = enemies.get(enemy);
 			currentEnemy.update();
+		}
+
+		// Continue when necessary
+		if (enemies.size() == 0 && player.getActiveRoom() != null)
+		{
+			nextRound();
 		}
 
 		// Update every projectile
@@ -299,6 +292,25 @@ public class GameManager
 		// Update player
 		player.update();
 
+		// Update every prop
+		for (int prop = 0; prop < props.size(); prop++)
+		{
+			Prop currentProp = props.get(prop);
+			currentProp.update();
+		}
+
+		// Check if player is colliding with any pickup
+		for (int pickup = 0; pickup < pickups.size(); pickup++)
+		{
+			Pickup currentPickup = pickups.get(pickup);
+			if (currentPickup.getMask().intersects(player.getMask()))
+			{
+				currentPickup.pickup();
+				root.getChildren().remove(currentPickup.getNode());
+				pickups.remove(currentPickup);
+			}
+		}
+
 		// Update vfx
 		VFX.update();
 
@@ -310,8 +322,7 @@ public class GameManager
 		// Set debug text
 		lblDebug.setText(debugStr.toString());
 	}
-
-	public static void draw(long deltaTime)
+	private static void draw(long deltaTime)
 	{
 		// Clear render images. (when tested, this was faster than refilling them)
 		fgImg = new WritableImage(AppProps.BASE_WIDTH, AppProps.BASE_HEIGHT);
@@ -322,6 +333,13 @@ public class GameManager
 		{
 			Prop currentProp = props.get(prop);
 			currentProp.updateScreenPos();
+		}
+
+		// Update pickup positions
+		for (int pickup = 0; pickup < pickups.size(); pickup++)
+		{
+			Pickup currentPickup = pickups.get(pickup);
+			currentPickup.updateScreenPos();
 		}
 
 		// Draw background
@@ -337,12 +355,77 @@ public class GameManager
 		fgView.setImage(fgImg);
 		bgView.setImage(bgImg);
 
-		// Update border gradients and minimap
+		// Set portal position on screen to center of end room
+		Rectangle endRoom = map.getEndRoom();
+		ImageView portalNode = portal.getNode();
+		portalNode.setX(endRoom.getX() + endRoom.getWidth() / 2);
+		portalNode.setY(endRoom.getY() + endRoom.getHeight() / 2);
+		portalNode.setX((portalNode.getX() - Camera.getX()) * AppProps.SCALE - 100);
+		portalNode.setY((portalNode.getY() - Camera.getY()) * AppProps.SCALE - 100);
+
+		// Update ui element
 		UI.updateBorders();
 		UI.updateMinimap();
+		UI.updateInfoLabel();
 	}
 	
 	// Game feature methods
+	public static void startRoom(Rectangle room)
+	{
+		roomSpawnPatterns = map.getRoomSpawnPattern(room);
+		
+		// Make sure room has spawn patterns
+		if (roomSpawnPatterns != null)
+		{
+			// -1 allows it to increment to 0
+			currentRoomRound = -1;
+			nextRound();
+		}
+	}
+	public static void nextRound()
+	{
+		currentRoomRound++;
+		if (roomSpawnPatterns.length == currentRoomRound)
+		{
+			player.clearRoom(player.getActiveRoom());
+			currentRoomRound--;
+			return;
+		}
+
+		int enemyCount = roomSpawnPatterns[currentRoomRound];
+		Rectangle room = player.getActiveRoom();
+
+		for (int i = 0; i < enemyCount; i++)
+		{
+			Vector2 spawnPos = new Vector2();
+			for (int attempts = 0; attempts < 10; attempts++)
+			{
+				spawnPos.x = room.getX() + 50 + Math.random() * (room.getWidth() - 100);
+				spawnPos.y = room.getY() + 50 + Math.random() * (room.getHeight() - 100);
+
+				for (int otherEnemy = 0; otherEnemy < enemies.size(); otherEnemy++)
+				{
+					if (enemies.get(otherEnemy).getMask().contains(spawnPos.x, spawnPos.y))
+					{
+						// Randomize again
+						continue;
+					}
+				}
+			}
+			Enemy e = new NormalEnemy("0", new Vector2(spawnPos.x, spawnPos.y), room);
+			addEnemy(e);
+		}
+	}
+
+	// Methods for getting and setting level integer
+	public static int getLevel()
+	{
+		return currentLevel;
+	}
+	public static void setLevel(int level)
+	{
+		currentLevel = level;
+	}
 
 	// Method to spawn projectile and add image to pane
 	public static void spawnProjectile(Projectile projectile)
@@ -386,7 +469,7 @@ public class GameManager
 	// Method to add prop
 	public static void addProp(Prop prop)
 	{
-		// Remove from arraylist and pane
+		// Add to arraylist and pane
 		props.add(prop);
 		GameManager.getRoot().getChildren().add(prop.getNode());
 	}
@@ -397,6 +480,13 @@ public class GameManager
 		// Remove from arraylist and pane
 		GameManager.getRoot().getChildren().remove(prop.getNode());
 		props.remove(prop);
+	}
+
+	// Method to add pickup
+	public static void addPickup(Pickup pickup)
+	{
+		pickups.add(pickup);
+		GameManager.getRoot().getChildren().add(bgImgDepthIndex + 1, pickup.getNode());
 	}
 
 	// Method to get props list
@@ -415,7 +505,7 @@ public class GameManager
 		return explosion.getMask().intersects(player.getMask());
 	}
 
-	// Accessor methods for various game parts
+	// Various accessor methods for various game parts
 	public static Pane getRoot()
 	{
 		return root;

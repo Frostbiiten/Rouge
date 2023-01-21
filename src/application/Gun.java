@@ -144,4 +144,18 @@ public abstract class Gun
 	{
 		return autoFire;
 	}
+
+	// Mutator methods
+	// Method to replenish ammo and magazine
+	public void refill()
+	{
+		ammo = magazineSize;
+		magazineCount = 3;
+	}
+
+	// Method to set ammo
+	public void setAmmo(int ammo)
+	{
+		this.ammo = ammo;
+	}
 }

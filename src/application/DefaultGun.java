@@ -51,6 +51,9 @@ public class DefaultGun extends Gun
 			{
 				Camera.shakeCamera(15, 0.2, 1);
 			}
+
+			// Play sound effect
+			AudioManager.playShoot();
 			
 			// Create new projectile and spawn into world
 			Projectile newProjectile = new NormalProjectile(xPos, yPos, xDir, yDir, playerOwned);

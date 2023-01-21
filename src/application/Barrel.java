@@ -67,9 +67,14 @@ public class Barrel extends Prop
 		
 		if (hits > 1)
 		{
-			// Remove object from pane
+			// Remove object from game
 			GameManager.removeProp(this);
+			
+			// 26% chance of spawning pickup
+			if (Math.random() < 0.26)
+			{
+				GameManager.addPickup(new Pickup(position.x, position.y));
+			}
 		}
 	}
-
 }

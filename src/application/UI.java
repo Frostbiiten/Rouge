@@ -16,6 +16,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.BorderStroke;
 import javafx.scene.layout.BorderStrokeStyle;
 import javafx.scene.layout.BorderWidths;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -25,7 +26,6 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
-import javafx.scene.text.TextAlignment;
 import javafx.util.Duration;
 
 public class UI
@@ -51,11 +51,14 @@ public class UI
 	// Minimap:
 	private static ArrayList<Rectangle> minimapRoomReferences;
 	private static ArrayList<Rectangle> minimapVisualRooms;
-	private static final double minimapScale = 8;
+	private static final double minimapScale = 20;
 	private static ImageView iconView;
 	private static Pane minimap;
-	private static Label lblStartRoom;
+	private static Label lblStartRoom, lblEndRoom;
 
+	// Label for extra info
+	public static Label lblInfo;
+	private static double infoTimer;
 
 	// Room border gradients
 	private static ImageView rightGradient, leftGradient, topGradient, bottomGradient;
@@ -97,7 +100,7 @@ public class UI
 
 				hpFlickerCounter++;
 
-				ImageView currentHeart = hearts.get(previousHp);
+				ImageView currentHeart = hearts.get((int)Math.min(previousHp, 3));
 				if (hpFlickerCounter % 4 > 2)
 				{
 					currentHeart.setImage(heartFull);
@@ -125,9 +128,18 @@ public class UI
 	
 	private static void initTop()
 	{
-		// Pane width
+		// Create top gridpane and set width
 		GridPane topPane = new GridPane();
 		topPane.setMinWidth(uiPane.getWidth());
+		topPane.setMaxWidth(uiPane.getWidth());
+
+		// Set colum widths
+		topPane.getColumnConstraints().addAll
+		(
+			new ColumnConstraints(AppProps.REAL_WIDTH / 3 - 100),
+			new ColumnConstraints(AppProps.REAL_WIDTH / 3 + 180),
+			new ColumnConstraints(AppProps.REAL_WIDTH / 3 - 100)
+		);
 
 		// Main hbox containing elements
 		HBox hpBox = new HBox();
@@ -185,12 +197,25 @@ public class UI
 		minimapRoomReferences = new ArrayList<Rectangle>();
 		minimapVisualRooms = new ArrayList<Rectangle>();
 
-		// Set colors
+		// Set minimap colors
 		minimap.setStyle("-fx-background-color: rgb(10, 10, 10, 0.9)");
 		minimap.setBorder(new Border(new BorderStroke(Color.WHITE, BorderStrokeStyle.SOLID, new CornerRadii(3), new BorderWidths(1))));
 
+		// Add end room to minimap
+		UI.addMinimapRoom(GameManager.getMap().getEndRoom());
+
+		// Set up info label (move offscreen by default)
+		infoTimer = 0;
+		lblInfo = new Label();
+		lblInfo.setFont(Font.loadFont(AppProps.fontBPath, 15));
+		lblInfo.setTextFill(Color.WHITE);
+		lblInfo.setTranslateY(-200);
+		lblInfo.setWrapText(true);
+		GridPane.setHalignment(lblInfo, HPos.CENTER);
+
 		// Add nodes to panes
-		topPane.add(minimap, 1, 0);
+		topPane.add(lblInfo, 1, 0);
+		topPane.add(minimap, 2, 0);
 		uiPane.setTop(topPane);
 	}
 	private static void initBottom()
@@ -264,9 +289,12 @@ public class UI
 	// Method to update crosshair position on screen
 	public static void updateCrosshairPos(double x, double y)
 	{
-		crosshairView.setX(x - 16);
-		crosshairView.setY(y - 16);
-		crosshairView.toFront();
+		if (crosshairView != null)
+		{
+			crosshairView.setX(x - 16);
+			crosshairView.setY(y - 16);
+			crosshairView.toFront();
+		}
 	}
 
 	public static void updateWeapon()
@@ -351,7 +379,7 @@ public class UI
 
 	public static void updateBorders()
 	{
-		Rectangle room = GameManager.getPlayer().getRoom();
+		Rectangle room = GameManager.getPlayer().getActiveRoom();
 
 		if (room != null)
 		{
@@ -408,6 +436,16 @@ public class UI
 
 			minimap.getChildren().add(lblStartRoom);
 		}
+		else if (room == GameManager.getMap().getEndRoom())
+		{
+			lblEndRoom = new Label("GOAL");
+			lblEndRoom.setTextFill(Color.rgb(220, 20, 20));
+			lblEndRoom.setFont(Font.loadFont(AppProps.fontAPath, 10));
+			lblEndRoom.setPrefWidth(100);
+			lblEndRoom.setAlignment(Pos.CENTER);
+
+			minimap.getChildren().add(lblEndRoom);
+		}
 	}
 
 	public static void updateMinimap()
@@ -427,11 +465,40 @@ public class UI
 			// Lerp opacity
 			minimapRoom.setOpacity(Util.lerp(minimapRoom.getOpacity(), 1, 0.03));
 
+			// Label start room
 			if (minimapRoomReferences.get(i) == GameManager.getMap().getStartRoom())
 			{
 				lblStartRoom.setLayoutX(minimapRoom.getLayoutX() + minimapRoom.getWidth() / 2 - lblStartRoom.getPrefWidth() / 2);
 				lblStartRoom.setLayoutY(minimapRoom.getLayoutY() - 15);
 			}
+
+			// Label end room
+			if (minimapRoomReferences.get(i) == GameManager.getMap().getEndRoom())
+			{
+				lblEndRoom.setLayoutX(minimapRoom.getLayoutX() + minimapRoom.getWidth() / 2 - lblEndRoom.getPrefWidth() / 2);
+				lblEndRoom.setLayoutY(minimapRoom.getLayoutY() - 15);
+			}
 		}
+	}
+
+	public static void updateInfoLabel()
+	{
+		// Decrement timer and lerp based on if label should be on screen or not
+		if (infoTimer > 0)
+		{
+			infoTimer--;
+			lblInfo.setTranslateY(Util.lerp(lblInfo.getTranslateY(), 10, 0.1));
+		}
+		else
+		{
+			lblInfo.setTranslateY(Util.lerp(lblInfo.getTranslateY(), -150, 0.1));
+		}
+	}
+
+	// Method to display a tip on the info label for a set time
+	public static void setLabelInfo(String text, double time)
+	{
+		lblInfo.setText(text);
+		infoTimer = time;
 	}
 }

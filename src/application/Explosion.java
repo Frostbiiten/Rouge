@@ -81,6 +81,8 @@ public class Explosion
 				}
 			}
 		}
+
+		AudioManager.playExplosion();
 		
 		// Start playing explosion animation
 		sprite.play();

@@ -17,7 +17,7 @@ import javafx.util.Duration;
 public class Player
 {
 	// Player movement
-	private final double movementSpeed = 2;
+	private final double movementSpeed = 10;
 	private Vector2 position;
 	private Vector2 velocity;
 	private Vector2 facing;
@@ -43,8 +43,14 @@ public class Player
 	private Vector2 recoilOffset;
 
 	// Misc
+	private ArrayList<Rectangle> completedRooms;
 	private Rectangle currentRoom;
-	private boolean roomCompleted;
+	private Rectangle activeRoom;
+	
+	// Points and level completion
+	private boolean levelCompleted;
+	private boolean dead;
+	private int points;
 	
 	// Constructor
 	public Player()
@@ -64,11 +70,11 @@ public class Player
 		mask = new Rectangle();
 		updateMask();
 
-		// Initialize guns and grant player default weapon
+		// Initialize gun and grant player default weapon
 		guns = new ArrayList<Gun>();
-		guns.add(new DefaultGun(true));
+		//guns.add(new DefaultGun(true));
 		guns.add(new FastGun(true));
-		guns.add(new RocketGun(true));
+		guns.get(0).setAmmo(999);
 		currentGun = 0;
 
 		// Create imageview for gun and add to pane
@@ -94,10 +100,39 @@ public class Player
 		rollStage = 0;
 		rollDirection = new Vector2();
 		rolling = false;
+
+		// Set up completed rooms arraylist to keep track of what rooms have been completed
+		completedRooms = new ArrayList<Rectangle>();
+
+		// Start with level not completed yet
+		levelCompleted = false;
+		dead = false;
 	}
 	
 	public void update()
 	{
+		if (dead)
+		{
+			return;
+		}
+
+		if (levelCompleted)
+		{
+			// Get the x position of the room's center
+			double roomCenterX = GameManager.getMap().getEndRoom().getX() + GameManager.getMap().getEndRoom().getWidth() / 2;
+			double roomCenterY = GameManager.getMap().getEndRoom().getY() + GameManager.getMap().getEndRoom().getHeight() / 2;
+
+			// Move player to center of room
+			position.x = Util.lerp(position.x, roomCenterX, 0.05);
+			position.y = Util.lerp(position.y, roomCenterY, 0.05);
+
+			// When the player gets close enough to the center, send them to the next level
+			if (Math.abs(roomCenterX - position.x) < 5 && Math.abs(roomCenterY - position.y) < 5)
+			{
+				GameManager.play();
+			}
+		}
+
 		// Countdown damage invunerability timer
 		if (damageCooldownClock > 0)
 		{
@@ -127,7 +162,21 @@ public class Player
 
 		// Get current room
 		currentRoom = map.getRoom(position.x, position.y);
-		UI.addMinimapRoom(currentRoom);
+		if (currentRoom != null)
+		{
+			UI.addMinimapRoom(currentRoom);
+
+			if (currentRoom == GameManager.getMap().getEndRoom())
+			{
+				levelCompleted = true;
+			}
+
+			if (currentRoom != activeRoom && !completedRooms.contains(currentRoom))
+			{
+				activeRoom = currentRoom;
+				GameManager.startRoom(activeRoom);
+			}
+		}
 		
 		Vector2 minTilePos = map.getTilePosition(position.x - radius.y + 1, position.y - radius.x + 1);
 		Vector2 midTilePos = map.getTilePosition(position.x, position.y);
@@ -231,9 +280,28 @@ public class Player
 			}
 		}
 
-		// Move player and update bounds
+		// Move player
 		position.x += velocity.x;
 		position.y += velocity.y;
+
+		// Keep within room if necessary
+		if (activeRoom != null)
+		{
+			double oldX = position.x;
+			double oldY = position.y;
+
+			position.x = Math.max(activeRoom.getX() - radius.x, position.x);
+			position.x = Math.min(activeRoom.getX() + activeRoom.getWidth() + radius.x, position.x);
+			position.y = Math.max(activeRoom.getY() - radius.y, position.y);
+			position.y = Math.min(activeRoom.getY() + activeRoom.getHeight() + radius.y, position.y);
+
+			if (oldX != position.x || oldY != position.y)
+			{
+				UI.setLabelInfo("CLEAR THE ROOM BEFORE CONTINUING!", 300);
+			}
+		}
+
+		// Update bounds
 		updateMask();
 
 		// Move camera
@@ -315,11 +383,23 @@ public class Player
 	// Run whenever the player scrolls
 	public void scroll(double delta)
 	{
+		// Cancel reload when weapon changed
 		guns.get(currentGun).cancelReload();
+
+		// Truncate delta to either +1 or -1 (no variable scrolling)
+		if (delta > 0)
+		{
+			delta = 1;
+		}
+		else
+		{
+			delta = -1;
+		}
 
 		// Scroll through different weapons, use modulo to limit range
 		currentGun += delta;
 		currentGun = Math.floorMod(currentGun, guns.size());
+		System.out.print (guns.size());
 		UI.updateWeapon();
 		gunView.setImage(guns.get(currentGun).getImage());
 	}
@@ -342,6 +422,7 @@ public class Player
 
 		if (hp == 0)
 		{
+			dead = true;
 			System.out.print("Die player");
 		}
 	}
@@ -356,6 +437,18 @@ public class Player
 		rolling = true;
 		rollTimeline.play();
 	}
+    public void addHealth(int health)
+	{
+		// Clamp hp within range if player is below max health
+		if (hp < 4)
+		{
+			hp += health;
+
+			// Limit to 4 hp without override
+			hp = (int)Math.min(hp, 4);
+		}
+		UI.updateHealth(hp);
+    }
 
 	// Accessor methods
 	public Vector2 getPosition()
@@ -387,8 +480,37 @@ public class Player
 	}
 
 	// Method to get room player current is in
-	public Rectangle getRoom()
+	public Rectangle getCurrentRoom()
 	{
 		return currentRoom;
+	}
+
+	// Method to get last active room player current is in
+	public Rectangle getActiveRoom()
+	{
+		return activeRoom;
+	}
+    public void clearRoom(Rectangle room)
+	{
+		completedRooms.add(room);
+		activeRoom = null;
+    }
+	public void addWeapon(Gun gun)
+	{
+		// Iterate through each gun
+		for (int i = 0; i < guns.size(); i++)
+		{
+			// Check if gun is already owned by player by comparing name
+			if (guns.get(i).getName().equals(gun.getName()))
+			{
+				// Refill the gun if it is already owned
+				guns.get(i).refill();
+				UI.updateWeapon();
+				return;
+			}
+		}
+
+		// If here is reached, the player must not have owned the gun, so grant it
+		guns.add(gun);
 	}
 }

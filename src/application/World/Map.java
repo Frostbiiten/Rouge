@@ -4,23 +4,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
 
-import application.AppProps;
 import application.Barrel;
-import application.Camera;
-import application.Enemy;
 import application.Explosive;
 import application.GameManager;
-import application.InputManager;
 import application.Prop;
-import application.UI;
 import application.Vector2;
 import javafx.geometry.Bounds;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
-import javafx.scene.layout.HBox;
 import javafx.scene.shape.Rectangle;
-import application.Util;
 
 public class Map
 {
@@ -158,14 +151,15 @@ public class Map
 							spawnX *= 16;
 							spawnY *= 16;
 
+							// 10% chance of explosives
 							Prop object;
-							if (Math.random() < 0.5)
+							if (Math.random() < 0.1)
 							{
-								object = new Barrel(new Vector2(spawnX, spawnY));
+								object = new Explosive(new Vector2(spawnX, spawnY));
 							}
 							else
 							{
-								object = new Explosive(new Vector2(spawnX, spawnY));
+								object = new Barrel(new Vector2(spawnX, spawnY));
 							}
 							column.add(object);
 						}
@@ -189,9 +183,9 @@ public class Map
 			}
 		
 			// Place enemies
-			if (tileRooms.get(i) == startTileRoom)
+			if (tileRooms.get(i) == startTileRoom || tileRooms.get(i) == endTileRoom)
 			{
-				// No enemies in spawn room
+				// No enemies in spawn room or end room
 				spawnPatterns[i] = new int[0];
 			}
 			else
@@ -207,11 +201,11 @@ public class Map
 					spawnPatterns[i] = new int[(int)(1 + Math.random() * 3)];
 				}
 
-				int roundEnemyCount = 3;
+				int roundEnemyCount = 1;
 				for (int j = 0; j < spawnPatterns[i].length; j++)
 				{
 					spawnPatterns[i][j] = roundEnemyCount;
-					roundEnemyCount += (int)(Math.random() * 4);
+					roundEnemyCount += (int)(Math.random() * 3);
 				}
 			}
 		}
@@ -536,7 +530,7 @@ public class Map
 		}
 	}
 
-	// Method to scale map by a 2 to remove elements with 1 width/height (like thin halls) and other various imperfections
+	// Method to scale map by a factor of 2 to remove elements with 1 width/height (like thin halls) and other various imperfections
 	private boolean[][] upscale(boolean[][] floorTiles)
 	{
 		// Double dimensions
@@ -1221,63 +1215,6 @@ public class Map
 		return mst;
 	}
 
-	// PUBLIC METHODS:
-
-	// Method to get the tilemap being ussed
-	public Tilemap getTilemap()
-	{
-		return tilemap;
-	}
-
-	public Vector2 getTilePosition(double x, double y)
-	{
-		int tileX = (int)(x / getTilemap().getTileSize());
-		int tileY = (int)(y / getTilemap().getTileSize());
-		return new Vector2(tileX, tileY);
-	}
-
-	// Method to get if the tile at [x][y] is a floor tile or not
-	public boolean getFloorTile(int x, int y)
-	{
-		if (x < 0 || x >= width || y < 0 || y >= height)
-		{
-			return false;
-		}
-		
-		return floorTiles[x][y];
-	}
-
-	// Methods to get the start room in the map (tile relative or pixel relative)
-	public Rectangle getStartTileRoom()
-	{
-		return startTileRoom;
-	}
-	public Rectangle getStartRoom()
-	{
-		return startRoom;
-	}
-	
-	// Method to get the end room in the map (tile relative or pixel relative)
-	public Rectangle getEndTileRoom()
-	{
-		return endTileRoom;
-	}
-	public Rectangle getEndRoom()
-	{
-		return endRoom;
-	}
-
-	// Methods to get the width and height of the map in terms of tiles
-	public int getWidthInTiles()
-	{
-		return floorTiles.length;
-	}
-
-	public int getHeightInTiles()
-	{
-		return floorTiles[0].length;
-	}
-
 	// Method to draw the map's tiles onto the screen. Render either the floor or elevated tiles
     public void draw(Vector2 cameraPos, WritableImage renderImg, boolean floor)
 	{
@@ -1379,6 +1316,61 @@ public class Map
 			}
 		}
     }
+
+	// PUBLIC METHODS:
+	// Method to get the tilemap being ussed
+	public Tilemap getTilemap()
+	{
+		return tilemap;
+	}
+
+	public Vector2 getTilePosition(double x, double y)
+	{
+		int tileX = (int)(x / getTilemap().getTileSize());
+		int tileY = (int)(y / getTilemap().getTileSize());
+		return new Vector2(tileX, tileY);
+	}
+
+	// Method to get if the tile at [x][y] is a floor tile or not
+	public boolean getFloorTile(int x, int y)
+	{
+		if (x < 0 || x >= width || y < 0 || y >= height)
+		{
+			return false;
+		}
+		
+		return floorTiles[x][y];
+	}
+
+	// Methods to get the start room in the map (tile relative or pixel relative)
+	public Rectangle getStartTileRoom()
+	{
+		return startTileRoom;
+	}
+	public Rectangle getStartRoom()
+	{
+		return startRoom;
+	}
+	
+	// Method to get the end room in the map (tile relative or pixel relative)
+	public Rectangle getEndTileRoom()
+	{
+		return endTileRoom;
+	}
+	public Rectangle getEndRoom()
+	{
+		return endRoom;
+	}
+
+	// Methods to get the width and height of the map in terms of tiles
+	public int getWidthInTiles()
+	{
+		return floorTiles.length;
+	}
+	public int getHeightInTiles()
+	{
+		return floorTiles[0].length;
+	}
 	
 	public Rectangle getRoom(double x, double y)
 	{
@@ -1388,6 +1380,27 @@ public class Map
 			{
 				return rooms.get(i);
 			}
+		}
+
+		return null;
+	}
+	public int[] getRoomSpawnPattern(Rectangle room)
+	{
+		// Get index
+		int r = 0;
+		while (r < rooms.size())
+		{
+			if (rooms.get(r) == room)
+			{
+				break;
+			}
+
+			r++;
+		}
+
+		if (r != rooms.size())
+		{
+			return spawnPatterns[r];
 		}
 
 		return null;
